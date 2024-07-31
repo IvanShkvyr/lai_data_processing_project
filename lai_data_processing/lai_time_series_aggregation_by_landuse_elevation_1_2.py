@@ -382,6 +382,81 @@ def classify_elevation(unified_dem, elevation_bins):
     return elevation_classes, elevation_labels
 
 
+def _extract_date_from_filename(filename):
+    """
+    Extract date from a filename assuming the pattern
+    '<prefix>_<YYYYDDD>_suffix'.
+    
+    Parameters:
+        filename (Path): Path object representing the LAI file name.
+        
+    Returns:
+        datetime: The date extracted from the filename.
+    """
+    date_str = filename.stem.split("_")[1]
+    year = int(date_str[:4])
+    day_of_year = int(date_str[4:7])
+    date = datetime(year, 1, 1) + timedelta(days=day_of_year - 1)
+    return date
+
+
+def _calculate_boxplot_stats(lai_data):
+    """
+    Calculate boxplot statistics for given LAI data.
+    
+    Parameters:
+        lai_data (numpy.ndarray): Array containing LAI values.
+        
+    Returns:
+        dict: A dictionary containing boxplot statistics.
+    """
+    Q1 = np.percentile(lai_data, 25)
+    Q2 = np.percentile(lai_data, 50)
+    Q3 = np.percentile(lai_data, 75)
+    IQR = Q3 - Q1
+    lower_whisker = Q1 - 1.5 * IQR
+    upper_whisker = Q3 + 1.5 * IQR
+    min_val = np.min(lai_data)
+    max_val = np.max(lai_data)
+    
+    return {
+        "Min": min_val,
+        "Q1": Q1,
+        "Median": Q2,
+        "Q3": Q3,
+        "Max": max_val,
+        "Lower Whisker": lower_whisker,
+        "Upper Whisker": upper_whisker,
+    }
+
+
+def _calculate_mean_and_boxplot_lai(lai_data, landuse_data, elevation_data, landuse_class, elev_class):
+    """
+    Calculate the mean LAI value and boxplot statistics for a given land use and elevation class.
+    
+    Parameters:
+        lai_data (numpy.ndarray): Array containing LAI values.
+        landuse_data (numpy.ndarray): Array containing land use classifications.
+        elevation_data (numpy.ndarray): Array containing elevation classes.
+        landuse_class (int): The land use class to filter.
+        elev_class (int): The elevation class to filter.
+    
+    Returns:
+        dict or None: A dictionary containing the mean LAI value and boxplot statistics,
+                      or None if no pixels match the criteria.
+    """
+    mask = (landuse_data == landuse_class) & (elevation_data == elev_class)
+    if np.any(mask):
+        filtered_lai_data = lai_data[mask]
+        mean_lai = np.mean(filtered_lai_data)
+        boxplot_stats = _calculate_boxplot_stats(filtered_lai_data)
+        return {
+            "Mean_LAI": mean_lai,
+            **boxplot_stats
+        }
+    return None
+
+
 def _process_lai_files_and_extract_data(
                                         unified_lai_list,
                                         land_use_file_path,
@@ -391,13 +466,13 @@ def _process_lai_files_and_extract_data(
     """
     Process LAI (Leaf Area Index) raster files and extract mean LAI values based
     on land use and elevation classes.
-
+    
     This function reads LAI raster files, extracts date information from
-    filenames, and computes the mean LAI values for different land use and
-    elevation classes. The results are compiled into a list of records
-    containing the date, land use class, elevation class, and the mean LAI
-    value.
-
+    filenames, and computes the mean LAI values and boxplot statistics for
+    different land use and elevation classes. The results are compiled into a
+    list of records containing the date, land use class, elevation class, mean
+    LAI value, and boxplot statistics.
+    
     Parameters:
         unified_lai_list (list of Path): A list of Path objects pointing to the
           LAI raster files that have been resampled to a uniform template.
@@ -408,15 +483,23 @@ def _process_lai_files_and_extract_data(
           location.
         elevation_labels (list of str): A list of labels describing each
           elevation class.
-
+    
     Returns:
-       list of lists: A list of records, where each record is a list containing:
+        list of lists: A list of records, where each record is a list containing:
                 - Date (datetime): The date extracted from the LAI file name.
                 - Landuse (int): The land use class.
                 - Elevation_class (str): The label of the elevation class.
                 - average_LAI (float): The mean LAI value for the corresponding
                   land use and elevation class.
-
+                - Min (float): Minimum LAI value.
+                - Q1 (float): First quartile.
+                - Median (float): Median (second quartile).
+                - Q3 (float): Third quartile.
+                - Max (float): Maximum LAI value.
+                - Lower Whisker (float): Lower whisker value.
+                - Upper Whisker (float): Upper whisker value.
+                - Outliers (list): List of outlier values.
+    
     Notes:
         - The date is extracted from the LAI file name, assuming the file name
           follows the pattern '<prefix>_<YYYYDDD>_suffix'. where YYYY is the
@@ -424,22 +507,14 @@ def _process_lai_files_and_extract_data(
         - The function assumes that the land use and elevation rasters have the
           same spatial resolution and extent as the LAI rasters.
     """
-
     # Read the land use data from the specified raster file
     landuse = read_raster(Path(land_use_file_path))
-    unique_landuse_classes = np.unique(
-        landuse
-    )  # Get unique land use classes present in the raster
+    unique_landuse_classes = np.unique(landuse)  # Get unique land use classes present in the raster
 
     data = []
     for lai_file in unified_lai_list:
         # Extract date information from the LAI file name
-        date_str = lai_file.stem.split("_")[1]
-        year = int(date_str[:4])
-        day_of_year = int(date_str[4:7])
-        date = datetime(year, 1, 1) + timedelta(
-            days=day_of_year - 1
-        )  # Compute the date from year and day of year
+        date = _extract_date_from_filename(lai_file)
 
         # Read LAI data from the current file
         lai_data = read_raster(lai_file)
@@ -448,25 +523,22 @@ def _process_lai_files_and_extract_data(
         for landuse_class in unique_landuse_classes:
             # Loop through each elevation class
             for elev_class in range(1, len(elevation_labels) + 1):
-                # Create a mask to filter pixels that match both the land use
-                # and elevation class
-                mask = (
-                        (landuse == landuse_class) &
-                        (elevation_classes == elev_class)
-                       )
-
-                # If there are any pixels that match the criteria, calculate
-                # mean LAI
-                if np.any(mask):
-                    mean_lai = np.mean(lai_data[mask])
-                    data.append(
-                        [
-                            date,
-                            landuse_class,
-                            elevation_labels[elev_class - 1],
-                            mean_lai,
-                        ]
-                    )
+                # Calculate mean LAI and boxplot statistics for the current land use and elevation class
+                stats = _calculate_mean_and_boxplot_lai(lai_data, landuse, elevation_classes, landuse_class, elev_class)
+                if stats is not None:
+                    data.append([
+                        date,
+                        landuse_class,
+                        elevation_labels[elev_class - 1],
+                        stats["Mean_LAI"],
+                        stats["Min"],
+                        stats["Q1"],
+                        stats["Median"],
+                        stats["Q3"],
+                        stats["Max"],
+                        stats["Lower Whisker"],
+                        stats["Upper Whisker"],
+                    ])
 
     return data
 
@@ -498,7 +570,19 @@ def _filter_lai_data_by_landuse(data, land_use_classes_of_interest):
     """
     # Create a DataFrame from the provided data with specified columns
     df_full = pd.DataFrame(
-        data, columns=["Date", "Landuse", "Elevation_class", "average_LAI"]
+        data, columns=[
+                        "Date",
+                        "Landuse",
+                        "Elevation_class",
+                        "Mean_LAI",
+                        "Min",
+                        "Q1",
+                        "Median",
+                        "Q3",
+                        "Max",
+                        "Lower Whisker",
+                        "Upper Whisker",
+                      ]
     )
 
     # Convert the 'Landuse' column to integer type
@@ -676,8 +760,16 @@ def _save_mean_lai_by_day_of_year_to_csv(data_frame, results_folder="results"):
     # mean LAI
     mean_lai_by_day = (
         data_frame.groupby(["Day_of_Year", "Landuse", "Elevation_class"])
-        ["average_LAI"]
-        .mean()
+        .agg({
+            "Mean_LAI": "mean",
+            "Min": "mean",
+            "Q1": "mean",
+            "Median": "mean",
+            "Q3": "mean",
+            "Max": "mean",
+            "Lower Whisker": "mean",
+            "Upper Whisker": "mean"
+        })
         .reset_index()
     )
 
@@ -687,6 +779,7 @@ def _save_mean_lai_by_day_of_year_to_csv(data_frame, results_folder="results"):
 
 def _plot_lai_by_landuse_and_elevation(
                                        data_frame,
+                                       display_data="Mean_LAI",
                                        results_folder_png="results\\png"
                                        ):
     """
@@ -724,13 +817,13 @@ def _plot_lai_by_landuse_and_elevation(
         for year, year_data in group_data.groupby(data_frame["Date"].dt.year):
             plt.plot(
                 year_data["Date"].dt.dayofyear,
-                year_data["average_LAI"],
+                year_data[display_data],
                 label=f"Year {year}",
             )
 
         # Set plot titles and labels
         plt.title(f"LAI for Landuse {landuse_class} and "
-                  f"Elevation {elevation_class}")
+                  f"Elevation {elevation_class} ({display_data})")
         plt.xlabel("Day of Year")
         plt.ylabel("LAI")
         plt.legend()
@@ -748,6 +841,83 @@ def _plot_lai_by_landuse_and_elevation(
         # Save the plot as a PNG file
         plt.savefig(plot_file_path)
         plt.close()
+
+
+def _plot_lai_by_landuse_and_elevation_for_year(
+                                                data_frame,
+                                                display_datas=None,
+                                                year=None,
+                                                results_folder_png="results/png"
+                                                ):
+    """
+    Generates and saves plots of Leaf Area Index (LAI) data by land use and
+    elevation class for a specified year.
+
+    This function creates line plots showing the variation of LAI over the day
+    of the year for each combination of land use and elevation class. Each plot
+    represents data for a specific land use class and elevation zone, displaying
+    the statistical measures specified in `display_datas` for the given year.
+
+    Parameters:
+        data_frame (pd.DataFrame): A DataFrame containing LAI data with columns
+            'Date', 'Landuse', 'Elevation_class', and various statistical measures.
+            The 'Date' column should be in datetime format.
+        display_datas (list of str): A list of column names to be plotted. 
+            Defaults to ['Q1', 'Q3'].
+        year (int): The year for which the data should be plotted.
+        results_folder_png (str): The path to the folder where the PNG plot files
+            will be saved. Defaults to 'results/png'.
+
+    Returns:
+        None
+
+    Notes:
+        - The function creates one plot for each combination of land use class
+          and elevation class, showing only the data for the specified year.
+        - The resulting plots are saved as PNG files in the specified folder,
+          with filenames indicating the land use, elevation classes, and year.
+    """
+    if display_datas is None:
+        display_datas = ["Q1", "Q3"]
+
+    # Filter the DataFrame for the specified year
+    year_data = data_frame[data_frame["Date"].dt.year == year]
+
+    # Ensure the results folder exists
+    results_folder_png_path = ensure_directory_exists(results_folder_png)
+
+    # Iterate over each combination of land use and elevation class
+    for (landuse_class, elevation_class), group_data in year_data.groupby(
+        ["Landuse", "Elevation_class"]
+    ):
+        plt.figure(figsize=(10, 6))
+
+        # Plot the specified statistical measures
+        for display_data in display_datas:
+            plt.plot(
+                group_data["Date"].dt.dayofyear,
+                group_data[display_data],
+                label=display_data
+            )
+
+        # Set plot titles and labels
+        plt.title(f"LAI for Landuse {landuse_class} and "
+                  f"Elevation {elevation_class} ({year})")
+        plt.xlabel("Day of Year")
+        plt.ylabel("Value")
+        plt.legend()
+
+        # Define the path for saving the plot
+        plot_file_path = (
+            results_folder_png_path
+            / f"lai_plot_landuse_{landuse_class}_" \
+              f"elevation_{elevation_class}_{year}.png"
+        )
+
+        # Save the plot as a PNG file
+        plt.savefig(plot_file_path)
+        plt.close()
+
 
 
 def run_calculate_and_save_mean_lai_by_period(
@@ -826,6 +996,7 @@ def run_plot_lai_by_landuse_and_elevation(
                                             dem_file_path,
                                             elevation_bins,
                                             land_use_classes_of_interest,
+                                            display_data,
                                          ):
     """
     Process LAI data files and generate plots of LAI by land use and elevation
@@ -852,7 +1023,34 @@ def run_plot_lai_by_landuse_and_elevation(
                                   )
 
     # Plot LAI values by land use and elevation class
-    _plot_lai_by_landuse_and_elevation(data_frame)
+    _plot_lai_by_landuse_and_elevation(data_frame, display_data)
+
+
+def run_plot_lai_by_landuse_and_elevation_for_year(
+                                            lai_folder_path,
+                                            land_use_path,
+                                            dem_file_path,
+                                            elevation_bins,
+                                            land_use_classes_of_interest,
+                                            display_datas,
+                                            year,
+                                                   ):
+    """
+    
+    """
+    # Process LAI data files and extract relevant information
+    data_frame = _process_lai_data(
+                                    lai_folder_path,
+                                    land_use_path,
+                                    dem_file_path,
+                                    elevation_bins,
+                                    land_use_classes_of_interest,
+                                  )
+
+    # Plot LAI values by land use and elevation class
+    _plot_lai_by_landuse_and_elevation_for_year(data_frame, display_datas, year)
+
+
 
 
 def run_all_lai_analysis(
@@ -919,6 +1117,24 @@ if "__main__" == __name__:
     # Setting land use classes
     outer_land_use_classes_of_interest = [211, 311]
 
+    # Setting value
+                        # "Mean_LAI"
+                        # "Min"
+                        # "Q1"
+                        # "Median"
+                        # "Q3"
+                        # "Max"
+                        # "Lower Whisker"
+                        # "Upper Whisker"
+    outer_display_data = "Q1"
+
+    outer_display_datas = ["Q1","Mean_LAI", "Q3"]
+
+    outer_year = 2001
+
+
+
+
     # run_calculate_and_save_mean_lai_by_period(
     #     outer_lai_folder_path,
     #     outer_land_use_path,
@@ -941,12 +1157,25 @@ if "__main__" == __name__:
     #     outer_dem_file_path,
     #     outer_elevation_bins,
     #     outer_land_use_classes_of_interest,
+    #     outer_display_data
     # )
 
-    run_all_lai_analysis(
+
+    run_plot_lai_by_landuse_and_elevation_for_year(
         outer_lai_folder_path,
         outer_land_use_path,
         outer_dem_file_path,
         outer_elevation_bins,
         outer_land_use_classes_of_interest,
+        outer_display_datas,
+        outer_year,
     )
+
+
+    # run_all_lai_analysis(
+    #     outer_lai_folder_path,
+    #     outer_land_use_path,
+    #     outer_dem_file_path,
+    #     outer_elevation_bins,
+    #     outer_land_use_classes_of_interest,
+    # )
