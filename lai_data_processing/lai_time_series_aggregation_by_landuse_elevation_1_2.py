@@ -51,11 +51,14 @@ Date: 2024-07-25
 
 from datetime import datetime, timedelta
 from pathlib import Path
+import shutil
 
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio.mask import mask
 from rasterio.warp import reproject, Resampling
 
 
@@ -131,8 +134,8 @@ def convert_hdr_to_tif(
 
     # Read data from HDR file
     with rasterio.open(data_file_path, "r", driver=driver) as src:
-        data = src.read(1)  # Читання першого (і єдиного) шару
-        profile = src.profile  # Копіювання профілю даних
+        data = src.read(1)
+        profile = src.profile
 
         # Replace values less than 0 with NaN
         data[data < 0] = np.nan
@@ -430,9 +433,16 @@ def _calculate_boxplot_stats(lai_data):
     }
 
 
-def _calculate_mean_and_boxplot_lai(lai_data, landuse_data, elevation_data, landuse_class, elev_class):
+def _calculate_mean_and_boxplot_lai(
+                                    lai_data,
+                                    landuse_data,
+                                    elevation_data,
+                                    landuse_class,
+                                    elev_class
+                                    ):
     """
-    Calculate the mean LAI value and boxplot statistics for a given land use and elevation class.
+    Calculate the mean LAI value and boxplot statistics for a given land use and
+    elevation class.
     
     Parameters:
         lai_data (numpy.ndarray): Array containing LAI values.
@@ -442,8 +452,8 @@ def _calculate_mean_and_boxplot_lai(lai_data, landuse_data, elevation_data, land
         elev_class (int): The elevation class to filter.
     
     Returns:
-        dict or None: A dictionary containing the mean LAI value and boxplot statistics,
-                      or None if no pixels match the criteria.
+        dict or None: A dictionary containing the mean LAI value and boxplot
+                     statistics, or None if no pixels match the criteria.
     """
     mask = (landuse_data == landuse_class) & (elevation_data == elev_class)
     if np.any(mask):
@@ -598,12 +608,68 @@ def _filter_lai_data_by_landuse(data, land_use_classes_of_interest):
     return data_frame
 
 
+def _cut_land_use_file_path(
+                            file_path,
+                            aoi_path,
+                            output_folder="temp",
+                            ):
+    """
+    Crops a land use raster file to the boundaries defined by an area of interest (AOI) shapefile.
+
+    This function reads the AOI shapefile to obtain the boundaries, then uses these boundaries 
+    to crop the provided land use raster file. The cropped raster is saved to the specified 
+    output folder, and the path to the newly created raster file is returned.
+
+    Parameters:
+        file_path (str or Path): The path to the land use raster file that needs to be cropped.
+        aoi_path (str or Path): The path to the shapefile defining the area of interest (AOI) used for cropping.
+        output_folder (str, optional): The folder where the cropped raster file will be saved. Defaults to "temp".
+
+    Returns:
+        str: The path to the cropped raster file.
+    
+    Notes:
+        - The output raster file will be saved in GeoTIFF format.
+    """   
+    # Loading the area of interest boundaries
+    aoi_file = gpd.read_file(aoi_path)
+
+    with rasterio.open(file_path) as src:
+        raster_crs = src.crs
+
+        # Reproject AOI if necessary
+        if aoi_file.crs != raster_crs:
+            aoi_file = aoi_file.to_crs(raster_crs)
+
+        geoms = aoi_file.geometry.values
+        out_image, out_transform = mask(src, geoms, crop=True)
+        out_meta = src.meta.copy()
+        out_meta.update({
+                            'driver': 'GTiff',
+                            'height': out_image.shape[1],
+                            'width': out_image.shape[2],
+                            'transform': out_transform
+                        })
+    
+    # Get the file name without the extension
+    name_file = Path(file_path).name
+    out_raster = f'{output_folder}/{name_file}'
+
+    # Write the cropped image
+    with rasterio.open(out_raster, 'w', **out_meta) as dest:
+        dest.write(out_image)
+
+   # Return the path to the cropped image
+    return out_raster
+
+
 def _process_lai_data(
                         lai_folder_path,
                         land_use_file_path,
                         dem_file_path,
                         elevation_bins,
                         land_use_classes_of_interest,
+                        aoi_boundary_file=None,
                      ):
     """
     Main function to process LAI (Leaf Area Index) data. This function handles
@@ -622,6 +688,10 @@ def _process_lai_data(
           classify elevation zones.
         land_use_classes_of_interest (list of int): List of land use classes to
           filter in the final data.
+        aoi_boundary_file (str or Path, optional): Path to the shapefile
+          defining the area of interest (AOI) used to crop the land use raster.
+           Defaults to None.
+
 
     Returns:
         pd.DataFrame: A DataFrame containing the extracted LAI data, filtered by
@@ -644,6 +714,14 @@ def _process_lai_data(
         convert_hdr_to_tif(file_lai) for file_lai in files_in_lai_folder
     ]
 
+    # If aoi_boundary_file is not None, cut land_use_file_path using
+    #  aoi_boundary_file
+    if aoi_boundary_file is not None:
+        land_use_file_path = _cut_land_use_file_path(
+                                                    land_use_file_path,
+                                                    aoi_boundary_file
+                                                    )
+    
     # Create a template raster based on the land use raster
     template_raster = create_template_raster(Path(land_use_file_path))
 
@@ -860,13 +938,14 @@ def _plot_lai_by_landuse_and_elevation_for_year(
 
     Parameters:
         data_frame (pd.DataFrame): A DataFrame containing LAI data with columns
-            'Date', 'Landuse', 'Elevation_class', and various statistical measures.
+            'Date', 'Landuse', 'Elevation_class', and various statistical
+            measures.
             The 'Date' column should be in datetime format.
         display_datas (list of str): A list of column names to be plotted. 
             Defaults to ['Q1', 'Q3'].
         year (int): The year for which the data should be plotted.
-        results_folder_png (str): The path to the folder where the PNG plot files
-            will be saved. Defaults to 'results/png'.
+        results_folder_png (str): The path to the folder where the PNG plot
+          files will be saved. Defaults to 'results/png'.
 
     Returns:
         None
@@ -918,6 +997,31 @@ def _plot_lai_by_landuse_and_elevation_for_year(
         plt.savefig(plot_file_path)
         plt.close()
 
+def remove_directory_if_needed(should_remove_temp, temp_path="temp"):
+    """
+    Removes the specified directory if the removal flag is set to True.
+
+    Parameters:
+        should_remove_temp (bool): Flag indicating whether the directory should
+          be removed.
+        temp_path (str or Path, optional): Path to the directory to be removed.
+          Defaults to "temp".
+
+    Returns:
+        None
+
+    Notes:
+        - If `should_remove_temp` is `True`, the function will attempt to remove
+          the directory specified by `temp_path`.
+        - If the directory does not exist or `should_remove_temp` is `False`,
+          no action is taken.
+    """
+    if should_remove_temp:
+        temp_folder=Path(temp_path)
+
+        # Check if the directory exists and is indeed a directory
+        if temp_folder.exists() and temp_folder.is_dir():
+            shutil.rmtree(temp_folder)
 
 
 def run_calculate_and_save_mean_lai_by_period(
@@ -926,6 +1030,8 @@ def run_calculate_and_save_mean_lai_by_period(
                                                 dem_file_path,
                                                 elevation_bins,
                                                 land_use_classes_of_interest,
+                                                aoi_boundary_file,
+                                                should_remove_temp=True
                                              ):
     """
     Process LAI data files, calculate mean LAI by period, and save the results
@@ -949,10 +1055,15 @@ def run_calculate_and_save_mean_lai_by_period(
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
+                                    aoi_boundary_file,
                                   )
 
     # Save the mean LAI values by period to a CSV file
     _save_mean_lai_by_period_to_csv(data_frame)
+
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
+
 
 
 def run_calculate_and_save_mean_lai_by_day_of_year(
@@ -961,6 +1072,7 @@ def run_calculate_and_save_mean_lai_by_day_of_year(
                                                 dem_file_path,
                                                 elevation_bins,
                                                 land_use_classes_of_interest,
+                                                should_remove_temp=True,
                                                   ):
     """
     Process LAI data files, calculate mean LAI by day of year, and save the
@@ -989,6 +1101,9 @@ def run_calculate_and_save_mean_lai_by_day_of_year(
     # Save the mean LAI values by day of year to a CSV file
     _save_mean_lai_by_day_of_year_to_csv(data_frame)
 
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
+
 
 def run_plot_lai_by_landuse_and_elevation(
                                             lai_folder_path,
@@ -997,6 +1112,7 @@ def run_plot_lai_by_landuse_and_elevation(
                                             elevation_bins,
                                             land_use_classes_of_interest,
                                             display_data,
+                                            should_remove_temp=True
                                          ):
     """
     Process LAI data files and generate plots of LAI by land use and elevation
@@ -1025,6 +1141,9 @@ def run_plot_lai_by_landuse_and_elevation(
     # Plot LAI values by land use and elevation class
     _plot_lai_by_landuse_and_elevation(data_frame, display_data)
 
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
+
 
 def run_plot_lai_by_landuse_and_elevation_for_year(
                                             lai_folder_path,
@@ -1034,6 +1153,7 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
                                             land_use_classes_of_interest,
                                             display_datas,
                                             year,
+                                            should_remove_temp=True
                                                    ):
     """
     
@@ -1050,7 +1170,8 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
     # Plot LAI values by land use and elevation class
     _plot_lai_by_landuse_and_elevation_for_year(data_frame, display_datas, year)
 
-
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
 
 
 def run_all_lai_analysis(
@@ -1059,6 +1180,7 @@ def run_all_lai_analysis(
                         dem_file_path,
                         elevation_bins,
                         land_use_classes_of_interest,
+                        should_remove_temp=True
                         ):
     """
     Perform a comprehensive analysis of LAI data including processing, saving
@@ -1094,6 +1216,9 @@ def run_all_lai_analysis(
     # Generate plots of LAI by land use and elevation class
     _plot_lai_by_landuse_and_elevation(data_frame)
 
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
+
 
 if "__main__" == __name__:
 
@@ -1103,7 +1228,7 @@ if "__main__" == __name__:
     outer_lai_folder_path = "data\\Vegetation"
 
     # Path to the boundary file of the area of interest
-    # outer_aoi_boundary_file  = 'DYJ_500_hranice.shp'
+    outer_aoi_boundary_file  = 'data\\border\DYJ_500_hranice.shp'
 
     # Path to the land use file +++
     outer_land_use_path = "data\\Land_Use\\CLC_Thaya_snap_2_model_extend.tif"
@@ -1132,6 +1257,8 @@ if "__main__" == __name__:
 
     outer_year = 2001
 
+    should_remove_temp=True
+
 
 
 
@@ -1141,6 +1268,7 @@ if "__main__" == __name__:
     #     outer_dem_file_path,
     #     outer_elevation_bins,
     #     outer_land_use_classes_of_interest,
+    #     outer_aoi_boundary_file,
     # )
 
     # run_calculate_and_save_mean_lai_by_day_of_year(
@@ -1169,6 +1297,7 @@ if "__main__" == __name__:
         outer_land_use_classes_of_interest,
         outer_display_datas,
         outer_year,
+        should_remove_temp,
     )
 
 
@@ -1178,4 +1307,5 @@ if "__main__" == __name__:
     #     outer_dem_file_path,
     #     outer_elevation_bins,
     #     outer_land_use_classes_of_interest,
+    #     should_remove_temp,
     # )
