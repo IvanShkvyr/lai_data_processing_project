@@ -553,7 +553,7 @@ def _process_lai_files_and_extract_data(
     return data
 
 
-def _filter_lai_data_by_landuse(data, land_use_classes_of_interest):
+def _filter_lai_data_by_landuse(data, land_use_classes_of_interest=None):
     """
     Creates a DataFrame from the provided LAI data and filters it based on
     specified land use classes.
@@ -569,6 +569,8 @@ def _filter_lai_data_by_landuse(data, land_use_classes_of_interest):
                              use class, elevation class, and average LAI value.
         land_use_classes_of_interest (list of int): A list of land use classes
                              that should be included in the filtered DataFrame.
+                             Defaults to None, which means all classes except 0
+                             will be included.
 
     Returns:
         pd.DataFrame: A filtered DataFrame containing only rows with land use
@@ -598,12 +600,17 @@ def _filter_lai_data_by_landuse(data, land_use_classes_of_interest):
     # Convert the 'Landuse' column to integer type
     df_full["Landuse"] = df_full["Landuse"].astype(int)
 
-    # Filter the DataFrame to include only rows where 'Landuse' is in the
-    # specified list
-    data_frame = (
-                df_full[df_full["Landuse"].isin(land_use_classes_of_interest)]
-                .copy()
-                 )
+    # If land_use_classes_of_interest is None, filter out only land use class 0
+    if land_use_classes_of_interest is None:
+        data_frame = df_full[df_full["Landuse"] != 0].copy()
+    else:
+        # Filter the DataFrame to include only rows where 'Landuse' is in the
+        # specified list
+        data_frame = (
+            df_full[
+                df_full["Landuse"].isin(land_use_classes_of_interest)
+            ].copy()
+        )
 
     return data_frame
 
@@ -668,7 +675,7 @@ def _process_lai_data(
                         land_use_file_path,
                         dem_file_path,
                         elevation_bins,
-                        land_use_classes_of_interest,
+                        land_use_classes_of_interest=None,
                         aoi_boundary_file=None,
                      ):
     """
@@ -756,6 +763,7 @@ def _process_lai_data(
 
     # Filter the extracted LAI data to include only the land use classes of
     # interest
+
     return _filter_lai_data_by_landuse(data, land_use_classes_of_interest)
 
 
@@ -997,6 +1005,7 @@ def _plot_lai_by_landuse_and_elevation_for_year(
         plt.savefig(plot_file_path)
         plt.close()
 
+
 def remove_directory_if_needed(should_remove_temp, temp_path="temp"):
     """
     Removes the specified directory if the removal flag is set to True.
@@ -1025,13 +1034,13 @@ def remove_directory_if_needed(should_remove_temp, temp_path="temp"):
 
 
 def run_calculate_and_save_mean_lai_by_period(
-                                                lai_folder_path,
-                                                land_use_file_path,
-                                                dem_file_path,
-                                                elevation_bins,
-                                                land_use_classes_of_interest,
-                                                aoi_boundary_file,
-                                                should_remove_temp=True
+                                            lai_folder_path,
+                                            land_use_path,
+                                            dem_file_path,
+                                            elevation_bins,
+                                            land_use_classes_of_interest=None,
+                                            aoi_boundary_file=None,
+                                            should_remove_temp=True,
                                              ):
     """
     Process LAI data files, calculate mean LAI by period, and save the results
@@ -1051,7 +1060,7 @@ def run_calculate_and_save_mean_lai_by_period(
     # Process LAI data files and extract relevant information
     data_frame = _process_lai_data(
                                     lai_folder_path,
-                                    land_use_file_path,
+                                    land_use_path,
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
@@ -1067,12 +1076,13 @@ def run_calculate_and_save_mean_lai_by_period(
 
 
 def run_calculate_and_save_mean_lai_by_day_of_year(
-                                                lai_folder_path,
-                                                land_use_file_path,
-                                                dem_file_path,
-                                                elevation_bins,
-                                                land_use_classes_of_interest,
-                                                should_remove_temp=True,
+                                            lai_folder_path,
+                                            land_use_path,
+                                            dem_file_path,
+                                            elevation_bins,
+                                            land_use_classes_of_interest=None,
+                                            aoi_boundary_file=None,
+                                            should_remove_temp=True,
                                                   ):
     """
     Process LAI data files, calculate mean LAI by day of year, and save the
@@ -1092,10 +1102,11 @@ def run_calculate_and_save_mean_lai_by_day_of_year(
     # Process LAI data files and extract relevant information
     data_frame = _process_lai_data(
                                     lai_folder_path,
-                                    land_use_file_path,
+                                    land_use_path,
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
+                                    aoi_boundary_file,
                                   )
 
     # Save the mean LAI values by day of year to a CSV file
@@ -1107,12 +1118,12 @@ def run_calculate_and_save_mean_lai_by_day_of_year(
 
 def run_plot_lai_by_landuse_and_elevation(
                                             lai_folder_path,
-                                            land_use_file_path,
+                                            land_use_path,
                                             dem_file_path,
                                             elevation_bins,
-                                            land_use_classes_of_interest,
-                                            display_data,
-                                            should_remove_temp=True
+                                            land_use_classes_of_interest=None,
+                                            aoi_boundary_file=None,
+                                            should_remove_temp=True,
                                          ):
     """
     Process LAI data files and generate plots of LAI by land use and elevation
@@ -1132,14 +1143,15 @@ def run_plot_lai_by_landuse_and_elevation(
     # Process LAI data files and extract relevant information
     data_frame = _process_lai_data(
                                     lai_folder_path,
-                                    land_use_file_path,
+                                    land_use_path,
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
+                                    aoi_boundary_file,
                                   )
 
     # Plot LAI values by land use and elevation class
-    _plot_lai_by_landuse_and_elevation(data_frame, display_data)
+    _plot_lai_by_landuse_and_elevation(data_frame)
 
     # Call the function to remove the directory if `should_remove_temp` is True
     remove_directory_if_needed(should_remove_temp)
@@ -1150,14 +1162,16 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
                                             land_use_path,
                                             dem_file_path,
                                             elevation_bins,
-                                            land_use_classes_of_interest,
                                             display_datas,
                                             year,
-                                            should_remove_temp=True
+                                            land_use_classes_of_interest=None,
+                                            aoi_boundary_file=None,
+                                            should_remove_temp=True,
                                                    ):
     """
     
     """
+
     # Process LAI data files and extract relevant information
     data_frame = _process_lai_data(
                                     lai_folder_path,
@@ -1165,6 +1179,7 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
+                                    aoi_boundary_file,
                                   )
 
     # Plot LAI values by land use and elevation class
@@ -1176,11 +1191,12 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
 
 def run_all_lai_analysis(
                         lai_folder_path,
-                        land_use_file_path,
+                        land_use_path,
                         dem_file_path,
                         elevation_bins,
-                        land_use_classes_of_interest,
-                        should_remove_temp=True
+                        land_use_classes_of_interest=None,
+                        aoi_boundary_file=None,
+                        should_remove_temp=True,
                         ):
     """
     Perform a comprehensive analysis of LAI data including processing, saving
@@ -1201,10 +1217,11 @@ def run_all_lai_analysis(
     # Process LAI data files and extract relevant information
     data_frame = _process_lai_data(
                                     lai_folder_path,
-                                    land_use_file_path,
+                                    land_use_path,
                                     dem_file_path,
                                     elevation_bins,
                                     land_use_classes_of_interest,
+                                    aoi_boundary_file,
                                   )
 
     # Save mean LAI values by period to a CSV file
@@ -1259,53 +1276,54 @@ if "__main__" == __name__:
 
     should_remove_temp=True
 
-
-
-
     # run_calculate_and_save_mean_lai_by_period(
-    #     outer_lai_folder_path,
-    #     outer_land_use_path,
-    #     outer_dem_file_path,
-    #     outer_elevation_bins,
-    #     outer_land_use_classes_of_interest,
-    #     outer_aoi_boundary_file,
-    # )
+    #     lai_folder_path=outer_lai_folder_path,
+    #     land_use_path=outer_land_use_path,
+    #     dem_file_path=outer_dem_file_path,
+    #     elevation_bins=outer_elevation_bins,
+    #     land_use_classes_of_interest=outer_land_use_classes_of_interest,
+    #     aoi_boundary_file=outer_aoi_boundary_file,
+    #     should_remove_temp=True,
+    #     )
 
     # run_calculate_and_save_mean_lai_by_day_of_year(
-    #     outer_lai_folder_path,
-    #     outer_land_use_path,
-    #     outer_dem_file_path,
-    #     outer_elevation_bins,
-    #     outer_land_use_classes_of_interest,
+    #     lai_folder_path=outer_lai_folder_path,
+    #     land_use_path=outer_land_use_path,
+    #     dem_file_path=outer_dem_file_path,
+    #     elevation_bins=outer_elevation_bins,
+    #     land_use_classes_of_interest=None,
+    #     aoi_boundary_file=outer_aoi_boundary_file,
+    #     should_remove_temp=True,
     # )
 
     # run_plot_lai_by_landuse_and_elevation(
-    #     outer_lai_folder_path,
-    #     outer_land_use_path,
-    #     outer_dem_file_path,
-    #     outer_elevation_bins,
-    #     outer_land_use_classes_of_interest,
-    #     outer_display_data
+    #     lai_folder_path=outer_lai_folder_path,
+    #     land_use_path=outer_land_use_path,
+    #     dem_file_path=outer_dem_file_path,
+    #     elevation_bins=outer_elevation_bins,
+    #     land_use_classes_of_interest=None,
+    #     aoi_boundary_file=outer_aoi_boundary_file,
+    #     should_remove_temp=True,
     # )
 
-
-    run_plot_lai_by_landuse_and_elevation_for_year(
-        outer_lai_folder_path,
-        outer_land_use_path,
-        outer_dem_file_path,
-        outer_elevation_bins,
-        outer_land_use_classes_of_interest,
-        outer_display_datas,
-        outer_year,
-        should_remove_temp,
-    )
-
+    # run_plot_lai_by_landuse_and_elevation_for_year(
+    #     lai_folder_path=outer_lai_folder_path,
+    #     land_use_path=outer_land_use_path,
+    #     dem_file_path=outer_dem_file_path,
+    #     elevation_bins=outer_elevation_bins,
+    #     display_datas=outer_display_datas,
+    #     year=outer_year,
+    #     land_use_classes_of_interest=None,
+    #     aoi_boundary_file=outer_aoi_boundary_file,
+    #     should_remove_temp=True
+    # )
 
     # run_all_lai_analysis(
-    #     outer_lai_folder_path,
-    #     outer_land_use_path,
-    #     outer_dem_file_path,
-    #     outer_elevation_bins,
-    #     outer_land_use_classes_of_interest,
-    #     should_remove_temp,
+    #     lai_folder_path=outer_lai_folder_path,
+    #     land_use_path=outer_land_use_path,
+    #     dem_file_path=outer_dem_file_path,
+    #     elevation_bins=outer_elevation_bins,
+    #     land_use_classes_of_interest=None,
+    #     aoi_boundary_file=outer_aoi_boundary_file,
+    #     should_remove_temp=True
     # )
