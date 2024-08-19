@@ -1337,12 +1337,12 @@ if "__main__" == __name__:
     #     should_remove_temp=True
     # )
 
-    # run_all_lai_analysis(
-    #     lai_folder_path=outer_lai_folder_path,
-    #     land_use_path=outer_land_use_path,
-    #     dem_file_path=outer_dem_file_path,
-    #     elevation_bins=outer_elevation_bins,
-    #     land_use_classes_of_interest=None,
-    #     aoi_boundary_file=outer_aoi_boundary_file,
-    #     should_remove_temp=True
-    # )
+    run_all_lai_analysis(
+        lai_folder_path=outer_lai_folder_path,
+        land_use_path=outer_land_use_path,
+        dem_file_path=outer_dem_file_path,
+        elevation_bins=outer_elevation_bins,
+        land_use_classes_of_interest=None,
+        aoi_boundary_file=outer_aoi_boundary_file,
+        should_remove_temp=False
+    )
