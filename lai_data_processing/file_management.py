@@ -1,7 +1,9 @@
 from pathlib import Path
 import shutil
+from typing import List
 
-def ensure_directory_exists(directory_path):
+
+def ensure_directory_exists(directory_path: str) -> Path:
     """
     Ensure that the specified exists. If not, create it.
 
@@ -18,14 +20,16 @@ def ensure_directory_exists(directory_path):
     return path
 
 
-def remove_directory_if_needed(should_remove_temp, temp_path="temp"):
+def remove_directory_if_needed(
+    should_remove_temp: bool, temp_path: str = "temp"
+) -> None:
     """
     Removes the specified directory if the removal flag is set to True.
 
     Parameters:
         should_remove_temp (bool): Flag indicating whether the directory should
           be removed.
-        temp_path (str or Path, optional): Path to the directory to be removed.
+        temp_path (str, optional): Path to the directory to be removed.
           Defaults to "temp".
 
     Returns:
@@ -45,7 +49,7 @@ def remove_directory_if_needed(should_remove_temp, temp_path="temp"):
             shutil.rmtree(temp_folder)
 
 
-def grab_raw_lai_data_files(path: Path):
+def grab_raw_lai_data_files(path: Path) -> List[Path]:
     """
     Get a list of raw LAI data files without extensions in the specified folder
 
@@ -67,6 +71,3 @@ def grab_raw_lai_data_files(path: Path):
             files_without_extension.append(element)
 
     return files_without_extension
-
-
-

@@ -4,11 +4,12 @@ import pandas as pd
 
 from file_management import ensure_directory_exists
 
+
 def save_mean_lai_by_period_to_csv(
-                                    dataframe: pd.DataFrame,
-                                    results_folder: str = "results",
-                                    filename: str = "daily_lai.csv"
-                                   ) -> None:
+    dataframe: pd.DataFrame,
+    results_folder: str = "results",
+    filename: str = "daily_lai.csv",
+) -> None:
     """
     Save the mean LAI values by period from a DataFrame to a CSV file.
 
@@ -45,9 +46,8 @@ def save_mean_lai_by_period_to_csv(
 
 
 def save_mean_lai_by_day_of_year_to_csv(
-        data_frame: pd.DataFrame,
-        results_folder: str = "results"
-        ) -> None:
+    data_frame: pd.DataFrame, results_folder: str = "results"
+) -> None:
     """
     Calculates the mean LAI values for each day of the year grouped by land use
     and elevation class, and saves the results to a CSV file.
@@ -86,21 +86,20 @@ def save_mean_lai_by_day_of_year_to_csv(
     # the mean LAI
     mean_lai_by_day = (
         data_frame.groupby(["Day_of_Year", "Landuse", "Elevation_class"])
-        .agg({
-            "Mean_LAI": "mean",
-            "Min": "mean",
-            "Q1": "mean",
-            "Median": "mean",
-            "Q3": "mean",
-            "Max": "mean",
-            "Lower Whisker": "mean",
-            "Upper Whisker": "mean"
-        })
+        .agg(
+            {
+                "Mean_LAI": "mean",
+                "Min": "mean",
+                "Q1": "mean",
+                "Median": "mean",
+                "Q3": "mean",
+                "Max": "mean",
+                "Lower Whisker": "mean",
+                "Upper Whisker": "mean",
+            }
+        )
         .reset_index()
     )
 
     # Save the DataFrame with mean LAI values to a CSV file
     mean_lai_by_day.to_csv(mean_characteristic_year_path, index=False)
-
-
-

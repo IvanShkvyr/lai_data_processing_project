@@ -1,12 +1,15 @@
 import matplotlib.pyplot as plt
+import pandas as pd
+from typing import Optional, List
 
 from file_management import ensure_directory_exists
 
+
 def plot_lai_by_landuse_and_elevation(
-                                       data_frame,
-                                       display_data="Mean_LAI",
-                                       results_folder_png="results\\png"
-                                       ):
+    data_frame: pd.DataFrame,
+    display_data: str = "Mean_LAI",
+    results_folder_png: str = "results\\png",
+) -> None:
     """
     Generates and saves plots of Leaf Area Index (LAI) data by land use and
     elevation class.
@@ -20,6 +23,8 @@ def plot_lai_by_landuse_and_elevation(
         df (pd.DataFrame): A DataFrame containing LAI data with columns 'Date',
           'Landuse', 'Elevation_class', and 'average_LAI'. The 'Date' column
            should be in datetime format.
+        display_data (str): Column name to be displayed in the plot, default is
+          "Mean_LAI".
         results_folder_png (str): The path to the folder where the PNG plot
            files will be saved. The default is 'results/png'.
 
@@ -47,8 +52,10 @@ def plot_lai_by_landuse_and_elevation(
             )
 
         # Set plot titles and labels
-        plt.title(f"LAI for Landuse {landuse_class} and "
-                  f"Elevation {elevation_class} ({display_data})")
+        plt.title(
+            f"LAI for Landuse {landuse_class} and "
+            f"Elevation {elevation_class} ({display_data})"
+        )
         plt.xlabel("Day of Year")
         plt.ylabel("LAI")
         plt.legend()
@@ -58,9 +65,8 @@ def plot_lai_by_landuse_and_elevation(
 
         # Define the path for saving the plot
         plot_file_path = (
-            results_folder_png_path
-            / f"lai_plot_landuse_{landuse_class}_"
-              f"elevation_{elevation_class}.png"
+            results_folder_png_path / f"lai_plot_landuse_{landuse_class}_"
+            f"elevation_{elevation_class}.png"
         )
 
         # Save the plot as a PNG file
@@ -69,11 +75,11 @@ def plot_lai_by_landuse_and_elevation(
 
 
 def plot_lai_by_landuse_and_elevation_for_year(
-                                            data_frame,
-                                            display_datas=None,
-                                            year=None,
-                                            results_folder_png="results/png"
-                                                ):
+    data_frame: pd.DataFrame,
+    display_datas: Optional[List[str]] = None,
+    year: Optional[int] = None,
+    results_folder_png: str = "results/png",
+) -> None:
     """
     Generates and saves plots of Leaf Area Index (LAI) data by land use and
     elevation class for a specified year.
@@ -124,24 +130,24 @@ def plot_lai_by_landuse_and_elevation_for_year(
             plt.plot(
                 group_data["Date"].dt.dayofyear,
                 group_data[display_data],
-                label=display_data
+                label=display_data,
             )
 
         # Set plot titles and labels
-        plt.title(f"LAI for Landuse {landuse_class} and "
-                  f"Elevation {elevation_class} ({year})")
+        plt.title(
+            f"LAI for Landuse {landuse_class} and "
+            f"Elevation {elevation_class} ({year})"
+        )
         plt.xlabel("Day of Year")
         plt.ylabel("Value")
         plt.legend()
 
         # Define the path for saving the plot
         plot_file_path = (
-            results_folder_png_path
-            / f"lai_plot_landuse_{landuse_class}_"
-              f"elevation_{elevation_class}_{year}.png"
+            results_folder_png_path / f"lai_plot_landuse_{landuse_class}_"
+            f"elevation_{elevation_class}_{year}.png"
         )
 
         # Save the plot as a PNG file
         plt.savefig(plot_file_path)
         plt.close()
-

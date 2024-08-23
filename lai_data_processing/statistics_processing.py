@@ -1,6 +1,7 @@
 import numpy as np
 
-def calculate_boxplot_stats(lai_data):
+
+def calculate_boxplot_stats(lai_data: np.ndarray) -> dict:
     """
     Calculate boxplot statistics for given LAI data.
 
@@ -31,12 +32,12 @@ def calculate_boxplot_stats(lai_data):
 
 
 def calculate_mean_and_boxplot_lai(
-                                    lai_data,
-                                    landuse_data,
-                                    elevation_data,
-                                    landuse_class,
-                                    elev_class
-                                    ):
+    lai_data: np.ndarray,
+    landuse_data: np.ndarray,
+    elevation_data: np.ndarray,
+    landuse_class: np.float32,
+    elev_class: int,
+) -> None:
     """
     Calculate the mean LAI value and boxplot statistics for a given land use
     and elevation class.
@@ -45,7 +46,7 @@ def calculate_mean_and_boxplot_lai(
        lai_data (numpy.ndarray): Array containing LAI values.
        landuse_data (numpy.ndarray): Array containing land use classifications.
        elevation_data (numpy.ndarray): Array containing elevation classes.
-       landuse_class (int): The land use class to filter.
+       landuse_class (numpy.float32): The land use class to filter.
        elev_class (int): The elevation class to filter.
 
     Returns:
@@ -57,8 +58,4 @@ def calculate_mean_and_boxplot_lai(
         filtered_lai_data = lai_data[mask]
         mean_lai = np.mean(filtered_lai_data)
         boxplot_stats = calculate_boxplot_stats(filtered_lai_data)
-        return {
-            "Mean_LAI": mean_lai,
-            **boxplot_stats
-        }
-    return None
+        return {"Mean_LAI": mean_lai, **boxplot_stats}

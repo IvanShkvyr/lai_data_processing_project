@@ -5,17 +5,18 @@ import rasterio
 
 from file_management import ensure_directory_exists
 
+
 def convert_hdr_to_tif(
-                        data_file_path,
-                        temp_lai_folder_path="temp\\temp_lai_processing",
-                        driver="ENVI"
-                      ):
+    data_file_path: Path,
+    temp_lai_folder_path: str = "temp\\temp_lai_processing",
+    driver: str = "ENVI",
+) -> Path:
     """
     Convert a HDR format raster file to TIFF format and save it in a specified
     temporary folder.
 
     Parameters:
-       data_file_path (str or Path): Path to the HDR format raster file.
+       data_file_path (Path): Path to the HDR format raster file.
        temp_lai_folder_path (str, optional): Path to the temporary folder where
                 the TIFF file will be saved.
                 Defaults to 'temp\\temp_lai_processing'.
@@ -63,15 +64,15 @@ def convert_hdr_to_tif(
 
 
 def create_template_raster(
-                            base_raster,
-                            output_folder="temp",
-                            filename="template_raster.tif"
-                          ):
+    base_raster: Path,
+    output_folder: str = "temp",
+    filename: str = "template_raster.tif",
+) -> Path:
     """
     Create a template raster file based on another raster, filled with zeros.
 
     Parameters:
-        base_raster (str): Path to the base raster file from which metadata
+        base_raster (Path): Path to the base raster file from which metadata
           will be read.
         output_folder (str): Path to the output folder where the template
           raster file will be created.
@@ -87,7 +88,6 @@ def create_template_raster(
         - The output raster file will have the same dimensions and coordinate
           system as the base raster, but all pixel values will be set to 0.
     """
-
     # Define the Path object for the output folder
     output_folder_path = ensure_directory_exists(output_folder)
 
@@ -103,11 +103,11 @@ def create_template_raster(
 
         # Update profile for saving in GTiff format
         profile.update(
-                        driver="GTiff",
-                        dtype=rasterio.float32,
-                        count=1,
-                        compress="lzw"
-                       )
+                      driver="GTiff",
+                      dtype=rasterio.float32,
+                      count=1,
+                      compress="lzw"
+                      )
 
         # Create a new TIFF file with all pixels set to 0
         with rasterio.open(template_raster_path, "w", **profile) as dst:
@@ -116,20 +116,18 @@ def create_template_raster(
 
             # Write the zeros array to the output file
             dst.write(zeros_array, 1)
-
     return template_raster_path
 
 
-def read_raster(raster_path):
+def read_raster(raster_path: Path) -> np.ndarray:
     """
     Reads the first band of a raster file and returns it as a numpy array.
 
     Parameters:
-        raster_path (str or Path): The path to the raster file to be read.
+        raster_path (Path): The path to the raster file to be read.
 
     Returns:
         numpy.ndarray: The first band of the raster file as a 2D array.
     """
     with rasterio.open(raster_path) as src:
         return src.read(1)
-
