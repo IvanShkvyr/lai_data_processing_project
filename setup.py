@@ -18,7 +18,12 @@ setup(
     },
     author='Ivan Shkvyr',
     author_email='shkvyr.i@czechglobe.cz',
-    description='', #Додати короткий опис проекту
+    description=(
+                 'This module processes Leaf Area Index (LAI) data and '
+                 'calculates basic statistical indicators of the LAI index '
+                 'based on land use and elevation. The processed data is then '
+                 'saved in a CSV file and visualized in the form of graphs.'
+                 ),
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     url='https://github.com/IvanShkvyr/lai_data_processing_project',

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 from csv_processing import (
     save_mean_lai_by_day_of_year_to_csv,
@@ -17,8 +17,8 @@ def run_calculate_and_save_mean_lai_by_period(
     land_use_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
     should_remove_temp: bool = True,
 ) -> None:
     """
@@ -62,8 +62,8 @@ def run_calculate_and_save_mean_lai_by_day_of_year(
     land_use_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
     should_remove_temp: bool = True,
 ) -> None:
     """
@@ -107,8 +107,8 @@ def run_plot_lai_by_landuse_and_elevation(
     land_use_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
     should_remove_temp: bool = True,
 ) -> None:
     """
@@ -154,8 +154,8 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
     elevation_bins: List[int],
     display_datas: List[str],
     year: int,
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
     should_remove_temp: bool = True,
 ) -> None:
     """
@@ -205,8 +205,8 @@ def run_all_lai_analysis(
     land_use_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
     should_remove_temp: bool = True,
 ) -> None:
     """

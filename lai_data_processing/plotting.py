@@ -1,14 +1,19 @@
+from typing import List
+
 import matplotlib.pyplot as plt
 import pandas as pd
-from typing import Optional, List
 
 from file_management import ensure_directory_exists
 
 
+DEFAULT_DISPLAY_DATA = "Mean_LAI"
+DEFAULT_PLOT_OUTPUT_DIR = "results\\png"
+
+
 def plot_lai_by_landuse_and_elevation(
     data_frame: pd.DataFrame,
-    display_data: str = "Mean_LAI",
-    results_folder_png: str = "results\\png",
+    display_data: str = DEFAULT_DISPLAY_DATA,
+    results_folder_png: str = DEFAULT_PLOT_OUTPUT_DIR,
 ) -> None:
     """
     Generates and saves plots of Leaf Area Index (LAI) data by land use and
@@ -76,9 +81,9 @@ def plot_lai_by_landuse_and_elevation(
 
 def plot_lai_by_landuse_and_elevation_for_year(
     data_frame: pd.DataFrame,
-    display_datas: Optional[List[str]] = None,
-    year: Optional[int] = None,
-    results_folder_png: str = "results/png",
+    display_datas: List[str] | None = None,
+    year: int | None = None,
+    results_folder_png: str = DEFAULT_PLOT_OUTPUT_DIR,
 ) -> None:
     """
     Generates and saves plots of Leaf Area Index (LAI) data by land use and

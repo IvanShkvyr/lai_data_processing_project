@@ -5,10 +5,14 @@ import pandas as pd
 from file_management import ensure_directory_exists
 
 
+DEFAULT_RESULTS_DIR = "results"
+DEFAULT_CSV_FILENAME = "daily_lai.csv"
+
+
 def save_mean_lai_by_period_to_csv(
     dataframe: pd.DataFrame,
-    results_folder: str = "results",
-    filename: str = "daily_lai.csv",
+    results_folder: str = DEFAULT_RESULTS_DIR,
+    filename: str = DEFAULT_CSV_FILENAME,
 ) -> None:
     """
     Save the mean LAI values by period from a DataFrame to a CSV file.
@@ -46,7 +50,7 @@ def save_mean_lai_by_period_to_csv(
 
 
 def save_mean_lai_by_day_of_year_to_csv(
-    data_frame: pd.DataFrame, results_folder: str = "results"
+    data_frame: pd.DataFrame, results_folder: str = DEFAULT_RESULTS_DIR
 ) -> None:
     """
     Calculates the mean LAI values for each day of the year grouped by land use

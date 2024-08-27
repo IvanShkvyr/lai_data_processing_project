@@ -1,7 +1,7 @@
 from collections import namedtuple
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import List, Tuple
 
 import geopandas as gpd
 import numpy as np
@@ -37,12 +37,14 @@ LAIRecord = namedtuple(
     ],
 )
 
+DEFAULT_TEMP_DIR = "temp"
+
 
 def copy_data_to_template(
     template_raster: Path,
     source_file: Path,
-    output_folder: str = "temp",
-    filename: Optional[str] = None,
+    output_folder: str = DEFAULT_TEMP_DIR,
+    filename: str | None = None,
 ) -> Path:
     """
     Resamples data from source_file to match the extent and resolution of
@@ -293,7 +295,7 @@ def process_lai_files_and_extract_data(
 
 def filter_lai_data_by_landuse(
     data: List[LAIRecord],
-    land_use_classes_of_interest: Optional[List[int]] = None
+    land_use_classes_of_interest: List[int] | None = None
 ) -> pd.DataFrame:
     """
     Creates a DataFrame from the provided LAI data and filters it based on
@@ -359,7 +361,7 @@ def filter_lai_data_by_landuse(
 def cut_land_use_file_path(
     file_path: str,
     aoi_path: str,
-    output_folder: str = "temp",
+    output_folder: str = DEFAULT_TEMP_DIR,
 ) -> str:
     """
     Crops a land use raster file to the boundaries defined by an area of
@@ -422,8 +424,8 @@ def process_lai_data(
     land_use_file_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
-    land_use_classes_of_interest: Optional[List[int]] = None,
-    aoi_boundary_file: Optional[str] = None,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
 ) -> pd.DataFrame:
     """
     Main function to process LAI (Leaf Area Index) data. This function handles

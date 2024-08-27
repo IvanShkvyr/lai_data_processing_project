@@ -4,12 +4,18 @@ import numpy as np
 import rasterio
 
 from file_management import ensure_directory_exists
+from data_processing import DEFAULT_TEMP_DIR
+
+
+TEMP_LAI_DIR = "temp\\temp_lai_processing"
+DEFAULT_HDR_DRIVER = "ENVI"
+DEFAULT_TEMP_RASTER_NAME = "template_raster.tif"
 
 
 def convert_hdr_to_tif(
     data_file_path: Path,
-    temp_lai_folder_path: str = "temp\\temp_lai_processing",
-    driver: str = "ENVI",
+    temp_lai_folder_path: str = TEMP_LAI_DIR,
+    driver: str = DEFAULT_HDR_DRIVER,
 ) -> Path:
     """
     Convert a HDR format raster file to TIFF format and save it in a specified
@@ -65,8 +71,8 @@ def convert_hdr_to_tif(
 
 def create_template_raster(
     base_raster: Path,
-    output_folder: str = "temp",
-    filename: str = "template_raster.tif",
+    output_folder: str = DEFAULT_TEMP_DIR,
+    filename: str = DEFAULT_TEMP_RASTER_NAME,
 ) -> Path:
     """
     Create a template raster file based on another raster, filled with zeros.

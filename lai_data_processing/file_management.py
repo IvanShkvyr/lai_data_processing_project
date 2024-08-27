@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 from typing import List
 
+from data_processing import DEFAULT_TEMP_DIR
+
 
 def ensure_directory_exists(directory_path: str) -> Path:
     """
@@ -21,7 +23,7 @@ def ensure_directory_exists(directory_path: str) -> Path:
 
 
 def remove_directory_if_needed(
-    should_remove_temp: bool, temp_path: str = "temp"
+    should_remove_temp: bool, temp_path: str = DEFAULT_TEMP_DIR
 ) -> None:
     """
     Removes the specified directory if the removal flag is set to True.
