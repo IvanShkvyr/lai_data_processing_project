@@ -4,13 +4,12 @@ import numpy as np
 import rasterio
 
 from file_management import ensure_directory_exists
-from data_processing import DEFAULT_TEMP_DIR
 
 
 TEMP_LAI_DIR = "temp\\temp_lai_processing"
 DEFAULT_HDR_DRIVER = "ENVI"
 DEFAULT_TEMP_RASTER_NAME = "template_raster.tif"
-
+DEFAULT_TEMP_DIR = "temp"
 
 def convert_hdr_to_tif(
     data_file_path: Path,

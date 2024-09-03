@@ -2,7 +2,8 @@ from pathlib import Path
 import shutil
 from typing import List
 
-from data_processing import DEFAULT_TEMP_DIR
+
+DEFAULT_TEMP_DIR = "temp"
 
 
 def ensure_directory_exists(directory_path: str) -> Path:

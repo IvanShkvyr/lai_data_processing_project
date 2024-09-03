@@ -10,7 +10,7 @@ import rasterio
 from rasterio.mask import mask
 from rasterio.warp import reproject, Resampling
 
-from file_management import ensure_directory_exists, grab_raw_lai_data_files
+from file_management import grab_raw_lai_data_files
 from raster_processing import (
     read_raster,
     create_template_raster,
@@ -64,6 +64,7 @@ def copy_data_to_template(
          Path: Path to the output raster file.
     """
 
+    from file_management import ensure_directory_exists
     # Define the Path object for the output folder
     output_folder_path = ensure_directory_exists(output_folder)
 
