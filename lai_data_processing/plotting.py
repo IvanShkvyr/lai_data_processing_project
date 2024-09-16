@@ -8,6 +8,7 @@ from file_management import ensure_directory_exists
 
 DEFAULT_DISPLAY_DATA = "Mean_LAI"
 DEFAULT_PLOT_OUTPUT_DIR = "results\\png"
+DEFAULT_DISPLAY_DATAS = ["Min", "Q1", "Median", "Q3", "Max",]
 
 
 def plot_lai_by_landuse_and_elevation(
@@ -137,6 +138,113 @@ def plot_lai_by_landuse_and_elevation_for_year(
                 group_data[display_data],
                 label=display_data,
             )
+
+        # Set plot titles and labels
+        plt.title(
+            f"LAI for Landuse {landuse_class} and "
+            f"Elevation {elevation_class} ({year})"
+        )
+        plt.xlabel("Day of Year")
+        plt.ylabel("Value")
+        plt.legend()
+
+        # Define the path for saving the plot
+        plot_file_path = (
+            results_folder_png_path / f"lai_plot_landuse_{landuse_class}_"
+            f"elevation_{elevation_class}_{year}.png"
+        )
+
+        # Save the plot as a PNG file
+        plt.savefig(plot_file_path)
+        plt.close()
+
+
+def plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
+    data_frame: pd.DataFrame,
+    year: int | None = None,
+    display_datas: List[str] = DEFAULT_DISPLAY_DATAS,
+    results_folder_png: str = DEFAULT_PLOT_OUTPUT_DIR,
+) -> None:
+    """
+    Generates and saves plots of Leaf Area Index (LAI) data by land use and
+    elevation class for a specified year.
+
+    This function creates line plots showing the variation of LAI over the day
+    of the year for each combination of land use and elevation class. Each plot
+    represents data for a specific land use class and elevation zone,
+    displaying the statistical measures specified in `display_datas` for the
+    given year.
+
+    Parameters:
+        data_frame (pd.DataFrame): A DataFrame containing LAI data with columns
+            'Date', 'Landuse', 'Elevation_class', and various statistical
+            measures.
+            The 'Date' column should be in datetime format.
+        year (int): The year for which the data should be plotted.
+        results_folder_png (str): The path to the folder where the PNG plot
+          files will be saved. Defaults to 'results/png'.
+
+    Returns:
+        None
+
+    Notes:
+        - The function creates one plot for each combination of land use class
+          and elevation class, showing only the data for the specified year.
+        - The resulting plots are saved as PNG files in the specified folder,
+          with filenames indicating the land use, elevation classes, and year.
+    """
+    # Filter the DataFrame for the specified year
+    year_data = data_frame[data_frame["Date"].dt.year == year]
+
+    # Ensure the results folder exists
+    results_folder_png_path = ensure_directory_exists(results_folder_png)
+
+    # Iterate over each combination of land use and elevation class
+    for (landuse_class, elevation_class), group_data in year_data.groupby(
+        ["Landuse", "Elevation_class"]
+    ):
+        plt.figure(figsize=(10, 6))
+
+        # Plot the area between Q1 and Q3 with light green fill
+        if "Q1" in display_datas and "Q3" in display_datas:
+            plt.fill_between(
+                group_data["Date"].dt.dayofyear,
+                group_data["Q1"],
+                group_data["Q3"],
+                color="lightgreen",
+                alpha=0.5,
+                label="Q1 - Q3",
+            )
+
+        # Plot the specified statistical measures
+        for display_data in display_datas:
+            if display_data == "Min" or display_data == "Max":
+                # Plot Min and Max with a solid black line
+                plt.plot(
+                    group_data["Date"].dt.dayofyear,
+                    group_data[display_data],
+                    color="black",
+                    linestyle="-",
+                    linewidth=0.5,
+                    label=display_data,
+                )
+            elif display_data == "Median":
+                # Plot Median with a thicker green line
+                plt.plot(
+                    group_data["Date"].dt.dayofyear,
+                    group_data[display_data],
+                    color="green",
+                    linestyle="-",
+                    linewidth=2,
+                    label=display_data,
+                )
+            elif display_data not in ["Q1", "Q3"]:  # Skip Q1 and Q3 as they are already filled
+                # Plot other data normally
+                plt.plot(
+                    group_data["Date"].dt.dayofyear,
+                    group_data[display_data],
+                    label=display_data,
+                )
 
         # Set plot titles and labels
         plt.title(

@@ -179,7 +179,7 @@ lai_data_processing_project/
 └── setup.py              # Installation script  
 
 ## License
-Information about the license under which the project is distributed (e.g., MIT, Apache 2.0).
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for more details.
 
 ## Contact
 If you have any questions or suggestions, you can contact me at:

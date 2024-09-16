@@ -9,6 +9,7 @@ from file_management import remove_directory_if_needed
 from plotting import (
     plot_lai_by_landuse_and_elevation,
     plot_lai_by_landuse_and_elevation_for_year,
+    plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max
 )
 
 
@@ -195,6 +196,56 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
 
     # Plot LAI values by land use and elevation class
     plot_lai_by_landuse_and_elevation_for_year(data_frame, display_datas, year)
+
+    # Call the function to remove the directory if `should_remove_temp` is True
+    remove_directory_if_needed(should_remove_temp)
+
+
+def run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
+    lai_folder_path: str,
+    land_use_path: str,
+    dem_file_path: str,
+    elevation_bins: List[int],
+    year: int,
+    land_use_classes_of_interest: List[int] | None = None,
+    aoi_boundary_file: str | None = None,
+    should_remove_temp: bool = True,
+) -> None:
+    """
+    Process LAI data files and generate plots of LAI by land use and elevation
+    class for a specific year.
+
+    Parameters:
+        lai_folder_path (str): Path to the folder containing LAI data files.
+        land_use_path (str): Path to the land use raster file.
+        dem_file_path (str): Path to the digital elevation model (DEM) file.
+        elevation_bins (List[int]): Elevation bins for classification.
+        year (int): The year for which the LAI data should be plotted.
+        land_use_classes_of_interest (Optional[List[int]]): List of land use
+                                   classes to include in the analysis. Defaults
+                                   to None, which includes all classes.
+        aoi_boundary_file (Optional[str]): Path to the area of interest (AOI)
+                                   boundary file. Defaults to None.
+        should_remove_temp (bool): Flag indicating whether to remove temporary
+                                   files and directories after processing.
+                                   Defaults to True.
+
+    Returns:
+        None: The plots are saved as PNG files.
+    """
+
+    # Process LAI data files and extract relevant information
+    data_frame = process_lai_data(
+        lai_folder_path,
+        land_use_path,
+        dem_file_path,
+        elevation_bins,
+        land_use_classes_of_interest,
+        aoi_boundary_file,
+    )
+
+    # Plot LAI values by land use and elevation class
+    plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(data_frame, year)
 
     # Call the function to remove the directory if `should_remove_temp` is True
     remove_directory_if_needed(should_remove_temp)
