@@ -2,6 +2,8 @@ from pathlib import Path
 import shutil
 from typing import List
 
+from decorators import measure_time
+
 
 DEFAULT_TEMP_DIR = "temp"
 
@@ -51,7 +53,7 @@ def remove_directory_if_needed(
         if temp_folder.exists() and temp_folder.is_dir():
             shutil.rmtree(temp_folder)
 
-
+@measure_time
 def grab_raw_lai_data_files(path: Path) -> List[Path]:
     """
     Get a list of raw LAI data files without extensions in the specified folder

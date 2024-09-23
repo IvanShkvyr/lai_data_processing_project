@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pandas as pd
 
@@ -6,47 +7,64 @@ from file_management import ensure_directory_exists
 
 
 DEFAULT_RESULTS_DIR = "results"
-DEFAULT_CSV_FILENAME = "daily_lai.csv"
+DEFAULT_CSV_FOLDER = "results\\results_daily_csv"
+DEFAULT_CSV_PREFIX_FILENAME = "daily_lai.csv"
 
 
 def save_mean_lai_by_period_to_csv(
     dataframe: pd.DataFrame,
-    results_folder: str = DEFAULT_RESULTS_DIR,
-    filename: str = DEFAULT_CSV_FILENAME,
-) -> None:
+    results_folder: str = DEFAULT_CSV_FOLDER,
+    ) -> None:
     """
-    Save the mean LAI values by period from a DataFrame to a CSV file.
+    Save mean LAI values grouped by year, land use, and elevation class to
+    separate CSV files.
 
-    This function takes a DataFrame containing mean LAI values and saves it as
-    CSV file in the specified results folder. The DataFrame should have been
-    processed to include mean LAI values for different periods, such as days of
-    the year.
+    This function takes a DataFrame containing mean LAI values along with their
+    corresponding dates, land use types, and elevation classes. It processes
+    the DataFrame to extract the year from the "Date" column and then groups
+    the data by unique combinations of year, land use, and elevation class.
+    Each unique group is saved to a separate CSV file named in the format:
+    "lai_data_{year}_{Landuse}_{Elevation_class}.csv".
 
     Parameters:
         dataframe (pd.DataFrame): The DataFrame containing the mean LAI values
-            to be saved.
-        results_folder (str, optional): Path to the folder where the CSV file
+            along with columns "Date", "Landuse", and "Elevation_class".
+        results_folder (str, optional): Path to the folder where the CSV files
             will be saved. Defaults to 'results'.
-        filename (str, optional): Name of the CSV file to be created. Defaults
-            to 'daily_lai.csv'.
 
     Returns:
         None
 
     Notes:
-        - The function ensures that the results folder exists before attempting
-          to save the file.
-        - The CSV file will be created with the specified filename in the given
-          folder.
+        - The function ensures that the specified results folder exists before
+          attempting to save the files.
+        - The "Date" column in the DataFrame is used to extract the year for
+          grouping purposes.
+        - The DataFrame is expected to contain the columns "Date", "Landuse",
+          and "Elevation_class".
+        - Columns "Year", "Landuse", and "Elevation_class" are removed from
+          each group before saving to CSV.
     """
+    dataframe["Date"] = pd.to_datetime(dataframe["Date"])
+    dataframe["Year"] = dataframe["Date"].dt.year
+
     # Ensure the results folder exists
     directory_path = ensure_directory_exists(results_folder)
 
-    # Formulate the full path to the output CSV file
-    daily_lai_path = directory_path / filename
+    # Group by the unique combinations of Years, Landuse, and Elevation_class
+    grouped = dataframe.groupby(["Year", "Landuse", "Elevation_class"])
 
-    # Save the DataFrame to a CSV file
-    dataframe.to_csv(daily_lai_path, index=False)
+    # Iterate through each group and save to a CSV
+    for (year, landuse, elevation_class), group in grouped:
+
+        # Formulate the full path to the output CSV file
+        filename = f"lai_data_{year}_{landuse}_{elevation_class}.csv"
+        filepath = os.path.join(directory_path, filename)
+
+        group = group.drop(["Year", "Landuse", "Elevation_class"], axis=1)
+
+        # Save the DataFrame to a CSV file
+        group.to_csv(filepath, index=False)
 
 
 def save_mean_lai_by_day_of_year_to_csv(

@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +12,14 @@ DEFAULT_HDR_DRIVER = "ENVI"
 DEFAULT_TEMP_RASTER_NAME = "template_raster.tif"
 DEFAULT_TEMP_DIR = "temp"
 
-def convert_hdr_to_tif(
+
+
+
+async def async_convert_hdr_to_tif(
     data_file_path: Path,
     temp_lai_folder_path: str = TEMP_LAI_DIR,
     driver: str = DEFAULT_HDR_DRIVER,
-) -> Path:
+    ) -> Path:
     """
     Convert a HDR format raster file to TIFF format and save it in a specified
     temporary folder.
@@ -37,7 +41,74 @@ def convert_hdr_to_tif(
         - If the specified temporary folder does not exist, it will be created
           before saving the TIFF file.
     """
-    # Define the Path object for the temporary folder
+    def sync_convert_hdr_to_tif(temp_lai_folder_path):
+        # Ensure the directory exists
+        temp_lai_folder_path = ensure_directory_exists(temp_lai_folder_path)
+
+        # Read data from HDR file
+        with rasterio.open(data_file_path, "r", driver=driver) as src:
+            data = src.read(1)
+            profile = src.profile
+
+            # Replace values less than 0 with NaN
+            data[data < 0] = np.nan
+
+        # Update profile for saving in GTiff format
+        profile.update(
+                        driver="GTiff",
+                        dtype=rasterio.float32,
+                        count=1,
+                        nodata=np.nan,
+                        compress="lzw"
+                    )
+
+        # Formulate path to tif file based on HDR file name in the temporary
+        # folder
+        tiff_file_name = f"{Path(data_file_path).stem}.tif"
+        out_tif_file = temp_lai_folder_path / tiff_file_name
+
+        # Save data in TIFF format
+        with rasterio.open(out_tif_file, "w", **profile) as dst:
+            dst.write(data.astype(rasterio.float32), 1)
+
+        return out_tif_file
+
+    # Run the synchronous function in a separate thread using asyncio.to_thread
+    out_tif_file = await asyncio.to_thread(
+        sync_convert_hdr_to_tif, temp_lai_folder_path
+    )
+
+    return out_tif_file
+
+
+def convert_hdr_to_tif(
+    data_file_path: Path,
+    temp_lai_folder_path: str = TEMP_LAI_DIR,
+    driver: str = DEFAULT_HDR_DRIVER,
+    ) -> Path:
+    """
+    Convert a HDR format raster file to TIFF format and save it in a specified
+    temporary folder.
+
+    Parameters:
+       data_file_path (Path): Path to the HDR format raster file.
+       temp_lai_folder_path (str, optional): Path to the temporary folder where
+                the TIFF file will be saved.
+                Defaults to 'temp\\temp_lai_processing'.
+       driver (str, optional): Rasterio driver to open the HDR file.
+                Defaults is 'ENVI'.
+
+    Returns:
+       Path: Full path to the converted TIF file saved in the temporary folder.
+
+    Notes:
+        - The function reads data from the HDR file, updates its profile for
+          TIF format, and saves it in the specified temporary folder.
+        - If the specified temporary folder does not exist, it will be created
+          before saving the TIFF file.
+    """
+
+    # Ensure the directory exists
     temp_lai_folder_path = ensure_directory_exists(temp_lai_folder_path)
 
     # Read data from HDR file
@@ -55,15 +126,18 @@ def convert_hdr_to_tif(
                     count=1,
                     nodata=np.nan,
                     compress="lzw"
-                  )
+                )
 
-    # Formulate path to tif file based on HDR file name in the temporary folder
+    # Formulate path to tif file based on HDR file name in the temporary
+    # folder
     tiff_file_name = f"{Path(data_file_path).stem}.tif"
     out_tif_file = temp_lai_folder_path / tiff_file_name
 
     # Save data in TIFF format
     with rasterio.open(out_tif_file, "w", **profile) as dst:
         dst.write(data.astype(rasterio.float32), 1)
+
+
 
     return out_tif_file
 

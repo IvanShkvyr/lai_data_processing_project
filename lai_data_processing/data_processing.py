@@ -1,6 +1,7 @@
 from collections import namedtuple
 from datetime import datetime, timedelta
 from pathlib import Path
+import pickle
 from typing import List, Tuple
 
 import geopandas as gpd
@@ -10,6 +11,7 @@ import rasterio
 from rasterio.mask import mask
 from rasterio.warp import reproject, Resampling
 
+from decorators import measure_time
 from file_management import grab_raw_lai_data_files
 from raster_processing import (
     read_raster,
@@ -38,6 +40,7 @@ LAIRecord = namedtuple(
 )
 
 DEFAULT_TEMP_DIR = "temp"
+DEFAULT_TEMP_LAI_DIR ="temp\\temp_lai_unifited"
 
 
 def copy_data_to_template(
@@ -420,14 +423,16 @@ def cut_land_use_file_path(
     return out_raster
 
 
-def process_lai_data(
+# @measure_time
+# async def process_lai_data(
+def process_lai_data( 
     lai_folder_path: str,
     land_use_file_path: str,
     dem_file_path: str,
     elevation_bins: List[int],
     land_use_classes_of_interest: List[int] | None = None,
     aoi_boundary_file: str | None = None,
-) -> pd.DataFrame:
+    ) -> pd.DataFrame:
     """
     Main function to process LAI (Leaf Area Index) data. This function handles
     the complete workflow from reading and converting raw LAI files, creating a
@@ -468,6 +473,7 @@ def process_lai_data(
 
     # Convert raw LAI files from HDR to TIFF format
     converted_tiff_files_paths = [
+        # await convert_hdr_to_tif(file_lai) for file_lai in files_in_lai_folder
         convert_hdr_to_tif(file_lai) for file_lai in files_in_lai_folder
     ]
 
@@ -483,16 +489,19 @@ def process_lai_data(
 
     # Resample the DEM raster to match the extent and resolution of the
     # template raster
-    unified_dem = copy_data_to_template(template_raster, dem_file_path)
+    unified_dem = copy_data_to_template(
+        template_raster,
+        dem_file_path,
+        )
 
-    # Resample the converted LAI rasters to match the template raster
+    # Resample the converted LAI rasters to match the template raster   
     unified_lai_list = []
     for converted_tiff_file in converted_tiff_files_paths:
         unified_lai_list.append(
             copy_data_to_template(
                 template_raster,
                 converted_tiff_file,
-                output_folder="temp\\temp_lai_unifited",
+                output_folder=DEFAULT_TEMP_LAI_DIR,
             )
         )
 

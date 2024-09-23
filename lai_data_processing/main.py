@@ -5,6 +5,7 @@ from csv_processing import (
     save_mean_lai_by_period_to_csv,
 )
 from data_processing import process_lai_data
+from decorators import measure_time
 from file_management import remove_directory_if_needed
 from plotting import (
     plot_lai_by_landuse_and_elevation,
@@ -201,6 +202,7 @@ def run_plot_lai_by_landuse_and_elevation_for_year(
     remove_directory_if_needed(should_remove_temp)
 
 
+# @measure_time
 def run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
     lai_folder_path: str,
     land_use_path: str,
@@ -213,7 +215,7 @@ def run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
 ) -> None:
     """
     Process LAI data files and generate plots of LAI by land use and elevation
-    class for a specific year.
+    class for a specific year asynchronously.
 
     Parameters:
         lai_folder_path (str): Path to the folder containing LAI data files.
@@ -245,7 +247,10 @@ def run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
     )
 
     # Plot LAI values by land use and elevation class
-    plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(data_frame, year)
+    plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
+        data_frame,
+        year
+        )
 
     # Call the function to remove the directory if `should_remove_temp` is True
     remove_directory_if_needed(should_remove_temp)

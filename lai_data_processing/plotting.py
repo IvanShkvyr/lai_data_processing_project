@@ -3,6 +3,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from decorators import measure_time
 from file_management import ensure_directory_exists
 
 
@@ -159,6 +160,7 @@ def plot_lai_by_landuse_and_elevation_for_year(
         plt.close()
 
 
+# @measure_time
 def plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
     data_frame: pd.DataFrame,
     year: int | None = None,
@@ -238,7 +240,7 @@ def plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
                     linewidth=2,
                     label=display_data,
                 )
-            elif display_data not in ["Q1", "Q3"]:  # Skip Q1 and Q3 as they are already filled
+            elif display_data not in ["Q1", "Q3"]:
                 # Plot other data normally
                 plt.plot(
                     group_data["Date"].dt.dayofyear,
