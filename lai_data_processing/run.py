@@ -9,12 +9,13 @@ from main import (
                   run_plot_lai_by_landuse_and_elevation_for_year,
                   run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max
                   )
+from plotting import plot_comparison_of_two_lai_datasets
 
 
 
 # Path to the folder with LAI data
 # outer_lai_folder_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\Vegetation"
-outer_lai_folder_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\Vegetation_2008_2016"
+outer_lai_folder_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\Vegetation_2008"
 
 # Path to the boundary file of the area of interest
 # outer_aoi_boundary_file = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\border\\DYJ_500_hranice.shp"
@@ -49,11 +50,16 @@ outer_display_datas = [
 "Q3",
 ]
 
-outer_year = 2016
+outer_year = 2008
 
 is_should_remove_temp = True
 
 start_time = time.time()
+
+# TODO: change names
+df_1 = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\results_done\\results_daily_csv\\lai_data_2008_311_700-800.csv"
+df_2 = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\results_done\\results_daily_csv\\lai_data_2008_312_700-800.csv"
+
 
 
 """
@@ -150,16 +156,27 @@ The file contains a chart for a specific year showing the min, Q1, mean, Q3,
 and max LAI values.
 The data is saved at: results\png.
 """
-run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
-    lai_folder_path=outer_lai_folder_path,
-    land_use_path=outer_land_use_path,
-    dem_file_path=outer_dem_file_path,
-    elevation_bins=outer_elevation_bins,
-    year=outer_year,
-    land_use_classes_of_interest=outer_land_use_classes_of_interest,
-    aoi_boundary_file=outer_aoi_boundary_file,
-    should_remove_temp=is_should_remove_temp
+# run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max(
+#     lai_folder_path=outer_lai_folder_path,
+#     land_use_path=outer_land_use_path,
+#     dem_file_path=outer_dem_file_path,
+#     elevation_bins=outer_elevation_bins,
+#     year=outer_year,
+#     land_use_classes_of_interest=outer_land_use_classes_of_interest,
+#     aoi_boundary_file=outer_aoi_boundary_file,
+#     should_remove_temp=is_should_remove_temp
+# )
+
+
+"""
+TODO: Create docstring
+"""
+plot_comparison_of_two_lai_datasets(
+    data_frame_first_path = df_1,
+    data_frame_second_path = df_2,
 )
+
+
 
 
 
