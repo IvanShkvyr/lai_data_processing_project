@@ -2,21 +2,23 @@ from collections import namedtuple
 from datetime import datetime, timedelta
 from pathlib import Path
 import pickle
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
-from rasterio.mask import mask
 from rasterio.warp import reproject, Resampling
 
 from decorators import measure_time
-from file_management import grab_raw_lai_data_files
+from file_management import grab_raw_lai_data_files, ensure_directory_exists
 from raster_processing import (
     read_raster,
     create_template_raster,
     convert_hdr_to_tif,
+    save_lai_to_raster,
+    cut_land_use_file_path,
+    DEFAULT_TEMP_DIR,
+    DEFAULT_TEMP_RASTER_NAME
 )
 from statistics_processing import calculate_mean_and_boxplot_lai
 
@@ -39,8 +41,9 @@ LAIRecord = namedtuple(
     ],
 )
 
-DEFAULT_TEMP_DIR = "temp"
 DEFAULT_TEMP_LAI_DIR ="temp\\temp_lai_unifited"
+DEFAULT_TEMP_LANDUSE_NAME = "unifited_landuse.tif"
+DEFAULT_MODIFY_LAI_FOLDER = "results\\modify_lai"
 
 
 def copy_data_to_template(
@@ -362,69 +365,7 @@ def filter_lai_data_by_landuse(
     return data_frame
 
 
-def cut_land_use_file_path(
-    file_path: str,
-    aoi_path: str,
-    output_folder: str = DEFAULT_TEMP_DIR,
-) -> str:
-    """
-    Crops a land use raster file to the boundaries defined by an area of
-    interest (AOI) shapefile.
-
-    This function reads the AOI shapefile to obtain the boundaries, then uses
-    these boundaries to crop the provided land use raster file. The cropped
-    raster is saved to the specified output folder, and the path to the newly
-    created raster file is returned.
-
-    Parameters:
-       file_path (str): The path to the land use raster file that needs
-        to be cropped.
-       aoi_path (str): The path to the shapefile defining the area of
-       interest (AOI) used for cropping.
-       output_folder (str, optional): The folder where the cropped raster file
-        will be saved. Defaults to "temp".
-
-    Returns:
-        str: The path to the cropped raster file.
-
-    Notes:
-        - The output raster file will be saved in GeoTIFF format.
-    """
-    # Loading the area of interest boundaries
-    aoi_file = gpd.read_file(aoi_path)
-
-    with rasterio.open(file_path) as src:
-        raster_crs = src.crs
-
-        # Reproject AOI if necessary
-        if aoi_file.crs != raster_crs:
-            aoi_file = aoi_file.to_crs(raster_crs)
-
-        geoms = aoi_file.geometry.values
-        out_image, out_transform = mask(src, geoms, crop=True)
-        out_meta = src.meta.copy()
-        out_meta.update(
-            {
-                "driver": "GTiff",
-                "height": out_image.shape[1],
-                "width": out_image.shape[2],
-                "transform": out_transform,
-            }
-        )
-
-    # Get the file name without the extension
-    name_file = Path(file_path).name
-    out_raster = f"{output_folder}/{name_file}"
-
-    # Write the cropped image
-    with rasterio.open(out_raster, "w", **out_meta) as dest:
-        dest.write(out_image)
-
-    return out_raster
-
-
 # @measure_time
-# async def process_lai_data(
 def process_lai_data( 
     lai_folder_path: str,
     land_use_file_path: str,
@@ -432,41 +373,42 @@ def process_lai_data(
     elevation_bins: List[int],
     land_use_classes_of_interest: List[int] | None = None,
     aoi_boundary_file: str | None = None,
-    ) -> pd.DataFrame:
+    ) -> Tuple[pd.DataFrame, List[Union[List[str], np.ndarray, List[str]]]]:
     """
-    Main function to process LAI (Leaf Area Index) data. This function handles
-    the complete workflow from reading and converting raw LAI files, creating a
-    template raster, resampling DEM and LAI data, classifying elevation zones,
-    and extracting relevant data based on land use and elevation classes.
+    Process LAI (Leaf Area Index) data and prepare it for analysis. This
+    function handles reading, converting, resampling, and classifying LAI data
+    along with land use and elevation data.
+
+    The workflow includes:
+    - Converting raw LAI files from HDR format to TIFF.
+    - Resampling the digital elevation model (DEM) and LAI data to match a
+      template raster derived from land use data.
+    - Classifying elevation zones based on provided elevation bins.
+    - Extracting and filtering data based on land use and elevation classes.
 
     Parameters:
         lai_folder_path (str or Path): Path to the folder containing raw LAI
-          data files (e.g., HDR format).
-        land_use_file_path (str or Path): Path to the land use raster file used
-          for creating a template raster.
+          data files in HDR format.
+        land_use_file_path (str or Path): Path to the land use raster file,
+          which is used to create the template raster for resampling.
         dem_file_path (str or Path): Path to the digital elevation model (DEM)
-          file to be resampled.
-        elevation_bins (list of int): List of elevation thresholds used to
-          classify elevation zones.
-        land_use_classes_of_interest (list of int): List of land use classes to
-          filter in the final data.
+          file that will be resampled to match the template raster.
+        elevation_bins (list of int): Threshold values for classifying
+          elevation zones.
+        land_use_classes_of_interest (list of int, optional): List of specific
+          land use classes to filter in the final extracted data. If None, all
+          land use classes will be included.
         aoi_boundary_file (str or Path, optional): Path to the shapefile
-          defining the area of interest (AOI) used to crop the land use raster.
-           Defaults to None.
-
+          representing the area of interest (AOI). If provided, the land use
+          raster will be cropped to this boundary.
 
     Returns:
-       pd.DataFrame: A DataFrame containing the extracted LAI data, filtered by
-          land use classes of interest.
-
-    Notes:
-        - This function converts raw LAI files from HDR to TIFF format, creates
-         a template raster based on land use data, resamples DEM and LAI
-         rasters to match the template, and classifies elevation zones based on
-         provided thresholds.
-        - The resulting data is processed to compute average LAI values for
-         different land use and elevation classes and is then filtered based on
-         specified land use classes.
+        pd.DataFrame: A DataFrame containing the processed LAI data, filtered
+          by land use classes of interest.
+        list: A list containing:
+          - unified_lai_list (List[str]): Paths to the resampled LAI files.
+          - unified_dem (str): Path to the resampled DEM file.
+          - elevation_labels (List[str]): List of elevation class labels.
     """
     # Obtain a list of raw LAI files from the specified folder
     files_in_lai_folder = grab_raw_lai_data_files(Path(lai_folder_path))
@@ -521,5 +463,169 @@ def process_lai_data(
 
     # Filter the extracted LAI data to include only the land use classes of
     # interest
+    result_data_frame = filter_lai_data_by_landuse(
+                                                data,
+                                                land_use_classes_of_interest
+                                                )
+    
+    list_of_data_for_modifying = [
+                                unified_lai_list,
+                                unified_dem,
+                                elevation_labels,
+                                ]
+    
+    return result_data_frame, list_of_data_for_modifying
 
-    return filter_lai_data_by_landuse(data, land_use_classes_of_interest)
+
+def adjust_lai(
+    lai_array: np.ndarray,
+    landuse_array: np.ndarray,
+    elevation_array: np.ndarray,
+    df: pd.DataFrame,
+    elevation_list: List[str],
+    lai_file_name: str
+    ) -> np.ndarray:
+    """
+    Adjusts LAI values based on land use and elevation classes specified in a
+    CSV file.
+
+    This function modifies the LAI values in the given array by applying a 
+    scaling factor (DIFF) for specific land use and elevation classes. 
+    The adjustments are determined by filtering a DataFrame containing 
+    the necessary information for a specific date extracted from the LAI file
+    name.
+
+    Parameters:
+        lai_array (np.ndarray): Array of LAI values to be adjusted.
+        landuse_array (np.ndarray): Array representing land use classes.
+        elevation_array (np.ndarray): Array representing elevation classes.
+        df (pd.DataFrame): DataFrame containing adjustment factors and class
+          information.
+        elevation_list (List[str]): List of elevation class labels
+          corresponding to raster classes.
+        lai_file_name (str): Name of the LAI file used to extract the date
+          for filtering.
+
+    Returns:
+        np.ndarray: The adjusted LAI array after applying the specified
+          modifications.
+    """
+    
+    # Extract the date from the LAI file name
+    lai_date = extract_date_from_filename(lai_file_name)
+    
+    # Filter the DataFrame for the relevant date
+    df_filtered = df[df['Date'] == lai_date.strftime('%Y-%m-%d')]
+
+    # Iterate through each filtered row in the DataFrame
+    for index, row in df_filtered.iterrows():
+        landuse_current = row['Landuse_current']
+
+        # Raster indexing starts from 1
+        elev_class_index = elevation_list.index(row['Elevation_class']) + 1  
+        diff = row['DIFF']
+
+        # Find the cells where land use and elevation match the conditions
+        condition = (
+            landuse_array == landuse_current
+        ) & (
+            elevation_array == elev_class_index
+        )
+
+        # Modify the corresponding values in the LAI array
+        lai_array[condition] = lai_array[condition] * diff
+
+    return lai_array
+
+
+def modification_lai_datas(
+    list_of_data_for_modifying: List[Union[List[Path], Path, List[str]]],
+    csv_for_modification: pd.DataFrame,
+    elevation_bins: List[int],
+    land_use_path: Path
+        ) -> None:
+    """
+    Modify LAI (Leaf Area Index) data based on land use and elevation classes.
+
+    This function takes LAI data, applies modifications according to elevation
+    and land use classes from a CSV file, and saves the adjusted LAI data as 
+    new raster files.
+
+    Workflow:
+    - Classify elevation data into specified elevation bins.
+    - Read land use and elevation raster data.
+    - Adjust LAI values based on matching land use and elevation classes.
+    - Save the modified LAI raster files.
+
+    Parameters:
+        list_of_data_for_modifying (list): A list containing:
+          - [0]: List of Paths to LAI raster files to be modified.
+          - [1]: Path to the elevation raster file.
+          - [2]: List of elevation class labels.
+        csv_for_modification (pd.DataFrame): DataFrame containing the CSV 
+          file with LAI adjustment factors based on land use and elevation 
+          classes.
+        elevation_bins (list of int): Threshold values for classifying 
+          elevation zones.
+        land_use_path (Path): Path to the land use raster file that will be
+          resampled to match the template raster.
+
+    Returns:
+        None: The function modifies the LAI rasters and saves the modified 
+          rasters to a specified directory.
+    """
+    # Read the elevation data from the raster file
+    unified_dem_data = read_raster(list_of_data_for_modifying[1])
+
+    # Classify elevation data into specified bins
+    elevation_classes = (
+        np.digitize(unified_dem_data, bins=elevation_bins, right=True) + 1
+    )
+
+    elevation_list = list_of_data_for_modifying[2]
+    
+    # Use the template raster to resample the land use file
+    template_raster = DEFAULT_TEMP_DIR + "\\" + DEFAULT_TEMP_RASTER_NAME
+
+    # Resample the land use data to match the template raster
+    unifited_landuse_path = copy_data_to_template(
+        template_raster=template_raster,
+        source_file=land_use_path,
+        output_folder=DEFAULT_TEMP_DIR,
+        filename=DEFAULT_TEMP_LANDUSE_NAME,
+    )
+
+    # Read the resampled land use raster
+    unified_landuse = read_raster(unifited_landuse_path)
+
+    # Define the output folder path for modified LAI files
+    output_folder_path = ensure_directory_exists(DEFAULT_MODIFY_LAI_FOLDER)
+
+    # Loop through each LAI file to apply modifications
+    for lai_file_path in list_of_data_for_modifying[0]:
+
+        # Read the LAI raster data
+        lai_data = read_raster(lai_file_path)
+
+        # Call the adjust_lai function with the corresponding LAI filename
+        lai_adjusted = adjust_lai(
+            lai_data,
+            unified_landuse,
+            elevation_classes,
+            csv_for_modification,
+            elevation_list,
+            lai_file_path
+        )
+
+        # Extract the filename without the extension
+        filename_raw = lai_file_path.stem
+        # Split the filename and extract the first two parts
+        part1 = filename_raw.split('_')[0]
+        part2 = filename_raw.split('_')[1]
+        part_of_name = part1 + '_' + part2
+
+        # Construct the output path for the modified LAI file
+        output_path = output_folder_path.joinpath(f"modify_{part_of_name}.tif")
+
+        # Save the adjusted LAI data to a new raster file
+        save_lai_to_raster(lai_adjusted, template_raster, output_path)

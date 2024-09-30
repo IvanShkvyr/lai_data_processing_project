@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import shutil
 from typing import List
 
@@ -76,3 +77,42 @@ def grab_raw_lai_data_files(path: Path) -> List[Path]:
             files_without_extension.append(element)
 
     return files_without_extension
+
+
+def extract_data_from_csv_filename(filename: str) -> tuple[int, str]:
+    """
+    Extract the land use class and elevation class from a CSV filename.
+
+    This function uses a regular expression to extract the land use class and 
+    elevation class from a filename that follows the pattern 
+    'lai_data_<year>_<landuse_class>_<elevation_class>.csv'.
+
+    Parameters:
+        filename (str): The name of the CSV file, expected to follow the 
+            pattern 'lai_data_<year>_<landuse_class>_<elevation_class>.csv'.
+    
+    Returns:
+        tuple[int, str]: A tuple where the first element is the land use class 
+                        (as an integer) and the second element is the
+                        elevation class (as a string, in the format 'low-high')
+    
+    Raises:
+        ValueError: If the filename does not match the expected pattern.
+    
+    Example:
+        >>> extract_data_from_csv_filename('lai_data_2021_3_400-500.csv')
+        (3, '400-500')
+    """
+    # Use regex to extract land use and elevation class from the filename
+    match = re.search(r'lai_data_\d+_(\d+)_(\d+-\d+)\.csv', filename)
+    
+    # If a match is found, extract land use and elevation classes
+    if match:
+        landuse_class = int(match.group(1))
+        elevation_class = match.group(2)
+
+        return landuse_class, elevation_class
+    
+    else:
+        # Raise an error if the filename does not match the expected format
+        raise ValueError("Filename does not match expected pattern")

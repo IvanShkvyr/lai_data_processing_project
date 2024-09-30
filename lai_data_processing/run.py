@@ -7,7 +7,8 @@ from main import (
                   run_calculate_and_save_mean_lai_by_period,
                   run_plot_lai_by_landuse_and_elevation,
                   run_plot_lai_by_landuse_and_elevation_for_year,
-                  run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max
+                  run_plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max,
+                  run_lai_modification
                   )
 from plotting import plot_comparison_of_two_lai_datasets
 
@@ -18,8 +19,8 @@ from plotting import plot_comparison_of_two_lai_datasets
 outer_lai_folder_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\Vegetation_2008"
 
 # Path to the boundary file of the area of interest
-# outer_aoi_boundary_file = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\border\\DYJ_500_hranice.shp"
-outer_aoi_boundary_file = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\border\\povodi_Zelivky_32633.shp"
+outer_aoi_boundary_file = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\border\\DYJ_500_hranice.shp"
+# outer_aoi_boundary_file = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\border\\povodi_Zelivky_32633.shp"
 
 # Path to the land use file +++
 outer_land_use_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\Land_Use\\CLC_Thaya_snap_2_model_extend.tif"
@@ -50,9 +51,14 @@ outer_display_datas = [
 "Q3",
 ]
 
+outer_current_landuse_class = 311
+outer_target_landuse_class = 312
+
+outer_is_clusters = False
+
 outer_year = 2008
 
-is_should_remove_temp = True
+is_should_remove_temp = False
 
 start_time = time.time()
 
@@ -74,6 +80,7 @@ and the elevation range (700-800).
 #     land_use_path=outer_land_use_path,
 #     dem_file_path=outer_dem_file_path,
 #     elevation_bins=outer_elevation_bins,
+#     is_clusters = outer_is_clusters,
 #     land_use_classes_of_interest=outer_land_use_classes_of_interest,
 #     aoi_boundary_file=outer_aoi_boundary_file,
 #     should_remove_temp=is_should_remove_temp,
@@ -169,12 +176,42 @@ The data is saved at: results\png.
 
 
 """
-TODO: Create docstring
+Creates PNG files comparing two data sets. The file contains a diagram for two
+data sets being compared, specifically: the median, minimum, Q1, Q3, and
+maximum LAI values for each of the specified classes. Data is saved in:
+results\png_compare.
+
+For input data, the files should be taken from the folder
+results_done\results_daily_csv\. These files can be obtained by using the
+function run_calculate_and_save_mean_lai_by_period with the attribute
+is_clusters = True.
 """
 plot_comparison_of_two_lai_datasets(
     data_frame_first_path = df_1,
     data_frame_second_path = df_2,
 )
+
+
+"""
+Creates modified TIFF files for each LAI image. When using the function, you
+need to specify current_landuse_class — the class you want to modify, and
+target_landuse_class — the class to which you want to adjust the values of
+current_landuse_class. After processing, the data will be saved in the folder
+results\modify_lai.
+
+Method A
+"""
+# run_lai_modification(
+#     lai_folder_path=outer_lai_folder_path,
+#     land_use_path=outer_land_use_path,
+#     dem_file_path=outer_dem_file_path,
+#     elevation_bins=outer_elevation_bins,
+#     current_landuse_class=outer_current_landuse_class,
+#     target_landuse_class=outer_target_landuse_class,
+#     aoi_boundary_file=outer_aoi_boundary_file,
+#     should_remove_temp=is_should_remove_temp
+#     )
+
 
 
 
