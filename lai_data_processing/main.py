@@ -1,15 +1,19 @@
 from typing import List
 
 import numpy as np
+import pandas as pd
 import rasterio
 
 from csv_processing import (
-    save_lai_to_csv,
+    save_data_to_csv,
     create_stat_lai_by_clusters,
     create_stat_lai_by_day_of_year,
     create_lai_modification_csv,
 )
-from data_processing import process_lai_data, copy_data_to_template, extract_date_from_filename, modification_lai_datas
+from data_processing import (process_lai_data,
+                             copy_data_to_template,
+                             extract_date_from_filename,
+                             modification_lai_datas)
 from decorators import measure_time
 from file_management import remove_directory_if_needed
 from plotting import (
@@ -18,6 +22,9 @@ from plotting import (
     plot_lai_by_landuse_and_elevation_for_year_with_q1_q3_med_min_max
 )
 from raster_processing import read_raster
+
+
+DEFAULT_CSV_MODIFICATION_FILENAME = "lai_modification.csv"
 
 
 def run_calculate_and_save_mean_lai_by_period(
@@ -65,7 +72,7 @@ def run_calculate_and_save_mean_lai_by_period(
         # Save the mean LAI values by period to a CSV file
         create_stat_lai_by_clusters(data_frame)
     else:
-        save_lai_to_csv(data_frame)
+        save_data_to_csv(data_frame)
 
     # Call the function to remove the directory if `should_remove_temp` is True
     remove_directory_if_needed(should_remove_temp)
@@ -308,7 +315,7 @@ def run_all_lai_analysis(
     )
 
     # Save mean LAI values by period to a CSV file
-    save_lai_to_csv(data_frame)
+    save_data_to_csv(data_frame)
 
     # Save mean LAI values by day of year to a CSV file
     create_stat_lai_by_day_of_year(data_frame)
@@ -376,13 +383,17 @@ def run_lai_modification(
         target_landuse_class
     )
 
+    
+
     # Apply the modifications to the LAI data
-    modification_lai_datas(
+    updated_csv_for_modification = modification_lai_datas(
                             list_of_data_for_modifying,
                             csv_for_modification,
                             elevation_bins,
                             land_use_path
                             )
+    
+    save_data_to_csv(updated_csv_for_modification, DEFAULT_CSV_MODIFICATION_FILENAME)
 
     # Call the function to remove the directory if `should_remove_temp` is True
     remove_directory_if_needed(should_remove_temp)

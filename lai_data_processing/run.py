@@ -29,7 +29,8 @@ outer_land_use_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_Tim
 outer_dem_file_path = "D:\\CzechGlobe\\Task\\task_3_20240715_(Hidro_team_LAI_TimeSeries_Aggregation)\\data\\DTM\\SRTM.tif"
 
 # Setting boundaries for elevation classes
-outer_elevation_bins = [400, 500, 600, 700, 800]
+outer_elevation_bins = None
+# outer_elevation_bins = [400, 500, 600, 700, 800]
 
 # Setting land use classes
 outer_land_use_classes_of_interest = [311, 312, 313]
@@ -186,10 +187,10 @@ results_done\results_daily_csv\. These files can be obtained by using the
 function run_calculate_and_save_mean_lai_by_period with the attribute
 is_clusters = True.
 """
-plot_comparison_of_two_lai_datasets(
-    data_frame_first_path = df_1,
-    data_frame_second_path = df_2,
-)
+# plot_comparison_of_two_lai_datasets(
+#     data_frame_first_path = df_1,
+#     data_frame_second_path = df_2,
+# )
 
 
 """
@@ -201,16 +202,16 @@ results\modify_lai.
 
 Method A
 """
-# run_lai_modification(
-#     lai_folder_path=outer_lai_folder_path,
-#     land_use_path=outer_land_use_path,
-#     dem_file_path=outer_dem_file_path,
-#     elevation_bins=outer_elevation_bins,
-#     current_landuse_class=outer_current_landuse_class,
-#     target_landuse_class=outer_target_landuse_class,
-#     aoi_boundary_file=outer_aoi_boundary_file,
-#     should_remove_temp=is_should_remove_temp
-#     )
+run_lai_modification(
+    lai_folder_path=outer_lai_folder_path,
+    land_use_path=outer_land_use_path,
+    dem_file_path=outer_dem_file_path,
+    elevation_bins=outer_elevation_bins,
+    current_landuse_class=outer_current_landuse_class,
+    target_landuse_class=outer_target_landuse_class,
+    aoi_boundary_file=outer_aoi_boundary_file,
+    should_remove_temp=is_should_remove_temp
+    )
 
 
 

@@ -2,6 +2,7 @@ from pathlib import Path
 import os
 
 import pandas as pd
+import numpy as np
 
 from file_management import ensure_directory_exists
 
@@ -13,7 +14,7 @@ DEFAULT_CSV_YEAR_FILENAME = "mean_characteristic_year.csv"
 DEFAULT_CSV_FILENAME = "lai.csv"
 
 
-def save_lai_to_csv(
+def save_data_to_csv(
     dataframe: pd.DataFrame,
     filename: str = DEFAULT_CSV_FILENAME,
     results_folder: str = DEFAULT_RESULTS_DIR,
@@ -100,7 +101,7 @@ def create_stat_lai_by_clusters(
 
         group = group.drop(["Year", "Landuse", "Elevation_class"], axis=1)
 
-        save_lai_to_csv(group, filename, results_folder)
+        save_data_to_csv(group, filename, results_folder)
 
 
 def create_stat_lai_by_day_of_year(
@@ -151,7 +152,7 @@ def create_stat_lai_by_day_of_year(
         .reset_index()
     )
 
-    save_lai_to_csv(mean_lai_by_day, file_name, results_folder)
+    save_data_to_csv(mean_lai_by_day, file_name, results_folder)
 
 
 def create_lai_modification_csv(
@@ -202,8 +203,12 @@ def create_lai_modification_csv(
                             'Median_target',
                             'Median_current',
                             'Q1_target',
-                            'Q3_target'
+                            'Q3_target',
                           ]]
+    
+    result_df = result_df.copy()
+    result_df.loc[:, 'Sum_of_pix'] = np.nan
+    result_df.loc[:, 'Count_unchanged_pix'] = np.nan
     
     # Create a copy of the DataFrame to avoid modification warnings
     # Add the 'DIFF' column, which is the ratio of median LAI values

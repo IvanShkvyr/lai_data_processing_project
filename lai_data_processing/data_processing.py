@@ -42,8 +42,9 @@ LAIRecord = namedtuple(
 )
 
 DEFAULT_TEMP_LAI_DIR ="temp\\temp_lai_unifited"
-DEFAULT_TEMP_LANDUSE_NAME = "unifited_landuse.tif"
+DEFAULT_TEMP_LANDUSE_NAME = "unifited_landuse"
 DEFAULT_MODIFY_LAI_FOLDER = "results\\modify_lai"
+DEFAULT_UNMODIFY_FOLDER = "results\\unmodify_data"
 
 
 def copy_data_to_template(
@@ -59,7 +60,7 @@ def copy_data_to_template(
     Parameters:
         template_raster ( Path): Path to the template raster file used for the
           extent and resolution.
-        source_file ( Path): Path to the input raster file containing data to be
+        source_file (Path): Path to the input raster file containing data to be
           resampled.
         output_folder (str): Path to the folder where the output file will
           be saved.
@@ -140,18 +141,20 @@ def copy_data_to_template(
 
 def classify_elevation(
     unified_dem: Path,
-    elevation_bins: List[int],
+    elevation_bins: List[int] = None
 ) -> Tuple[np.ndarray, List[str]]:
     """
     Classify elevation data into different zones based on provided elevation
-    thresholds.
+    thresholds. If no thresholds are provided, they will be automatically
+    generated in multiples of 100.
 
     Parameters:
         unified_dem (Path): Path to the raster file containing the elevation
           data.
         elevation_bins (List[int]): List of elevation thresholds for
          classification. Elevation values will be categorized into bins defined
-         by these thresholds.
+         by these thresholds. If None, thresholds will be generated in
+         multiples of 100 based on the data range.
 
     Returns:
        numpy.ndarray: An array with the same shape as the input elevation data,
@@ -163,6 +166,16 @@ def classify_elevation(
 
     # Read the elevation data from the raster file
     unified_dem_data = read_raster(unified_dem)
+    
+    # Determine min and max elevation values
+    min_elevation = np.min(unified_dem_data)
+    max_elevation = np.max(unified_dem_data)
+    
+    # Automatically generate bins if elevation_bins is None
+    if elevation_bins is None:
+        min_bin = (int(np.floor(min_elevation / 100)) + 1) * 100
+        max_bin = (int(np.ceil(max_elevation / 100))) * 100
+        elevation_bins = list(range(min_bin, max_bin, 100))
 
     # Classify elevation data into bins
     elevation_classes = (
@@ -179,7 +192,7 @@ def classify_elevation(
         + [f"greater_than_{elevation_bins[-1]}"]
     )
 
-    return elevation_classes, elevation_labels
+    return elevation_classes, elevation_labels, elevation_bins
 
 
 def extract_date_from_filename(filename: Path) -> datetime:
@@ -415,7 +428,7 @@ def process_lai_data(
 
     # Convert raw LAI files from HDR to TIFF format
     converted_tiff_files_paths = [
-        # await convert_hdr_to_tif(file_lai) for file_lai in files_in_lai_folder
+        # await convert_hdr_to_tif for file_lai in files_in_lai_folder
         convert_hdr_to_tif(file_lai) for file_lai in files_in_lai_folder
     ]
 
@@ -448,7 +461,7 @@ def process_lai_data(
         )
 
     # Classify the elevation data based on the specified elevation bins
-    elevation_classes, elevation_labels = classify_elevation(
+    elevation_classes, elevation_labels, new_elev_bins = classify_elevation(
         unified_dem, elevation_bins
     )
 
@@ -471,7 +484,6 @@ def process_lai_data(
     list_of_data_for_modifying = [
                                 unified_lai_list,
                                 unified_dem,
-                                elevation_labels,
                                 ]
     
     return result_data_frame, list_of_data_for_modifying
@@ -484,10 +496,12 @@ def adjust_lai(
     df: pd.DataFrame,
     elevation_list: List[str],
     lai_file_name: str
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Adjusts LAI values based on land use and elevation classes specified in a
-    CSV file.
+    CSV file, applying changes only if the new values fall within the range
+    between Q1 and Q3. Unchanged values (not passing the Q1-Q3 condition)
+    are recorded in a separate raster.
 
     This function modifies the LAI values in the given array by applying a 
     scaling factor (DIFF) for specific land use and elevation classes. 
@@ -507,9 +521,13 @@ def adjust_lai(
           for filtering.
 
     Returns:
-        np.ndarray: The adjusted LAI array after applying the specified
-          modifications.
+        Tuple[np.ndarray, np.ndarray]: The adjusted LAI array after applying 
+          the specified modifications within the Q1-Q3 range, and a raster 
+          with the unchanged values that did not pass the Q1-Q3 condition.
     """
+
+    # Create an empty raster to store unchanged values
+    unchanged_array = np.full_like(lai_array, np.nan)
     
     # Extract the date from the LAI file name
     lai_date = extract_date_from_filename(lai_file_name)
@@ -524,6 +542,8 @@ def adjust_lai(
         # Raster indexing starts from 1
         elev_class_index = elevation_list.index(row['Elevation_class']) + 1  
         diff = row['DIFF']
+        q1_target = row["Q1_target"]
+        q3_target = row["Q3_target"]
 
         # Find the cells where land use and elevation match the conditions
         condition = (
@@ -533,15 +553,42 @@ def adjust_lai(
         )
 
         # Modify the corresponding values in the LAI array
-        lai_array[condition] = lai_array[condition] * diff
+        new_values = lai_array[condition] * diff
 
-    return lai_array
+        # Apply the change only if the new value falls between Q1 and Q3
+        valid_condition = (new_values >= q1_target) & (new_values <= q3_target)
+
+        # Store unchanged values in the empty raster
+        unchanged_array[condition] = np.where(
+            ~valid_condition,
+            lai_array[condition],
+            np.nan
+            )
+
+        # Update the LAI array with valid changes
+        lai_array[condition] = np.where(
+            valid_condition,
+            new_values,
+            lai_array[condition]
+            )
+
+        # Calculate the total number of pixels in this condition (Sum_of_pix)
+        sum_of_pix = np.sum(condition)
+        
+        # Calculate the number of unchanged pixels (Count_unchanged_pix)
+        count_unchanged_pix = np.sum(~valid_condition)
+
+        # Update the DataFrame with the results
+        df.at[index, 'Sum_of_pix'] = sum_of_pix
+        df.at[index, 'Count_unchanged_pix'] = count_unchanged_pix
+
+    return lai_array, unchanged_array
 
 
 def modification_lai_datas(
     list_of_data_for_modifying: List[Union[List[Path], Path, List[str]]],
     csv_for_modification: pd.DataFrame,
-    elevation_bins: List[int],
+    elevation_bins: List[int]| None,
     land_use_path: Path
         ) -> None:
     """
@@ -561,11 +608,10 @@ def modification_lai_datas(
         list_of_data_for_modifying (list): A list containing:
           - [0]: List of Paths to LAI raster files to be modified.
           - [1]: Path to the elevation raster file.
-          - [2]: List of elevation class labels.
         csv_for_modification (pd.DataFrame): DataFrame containing the CSV 
           file with LAI adjustment factors based on land use and elevation 
           classes.
-        elevation_bins (list of int): Threshold values for classifying 
+        elevation_bins (list of int,optional): Threshold values for classifying 
           elevation zones.
         land_use_path (Path): Path to the land use raster file that will be
           resampled to match the template raster.
@@ -574,16 +620,11 @@ def modification_lai_datas(
         None: The function modifies the LAI rasters and saves the modified 
           rasters to a specified directory.
     """
-    # Read the elevation data from the raster file
-    unified_dem_data = read_raster(list_of_data_for_modifying[1])
 
-    # Classify elevation data into specified bins
-    elevation_classes = (
-        np.digitize(unified_dem_data, bins=elevation_bins, right=True) + 1
+    elevation_classes, elevation_labels, new_elev_bins = classify_elevation( ##################################################################
+        list_of_data_for_modifying[1], elevation_bins
     )
 
-    elevation_list = list_of_data_for_modifying[2]
-    
     # Use the template raster to resample the land use file
     template_raster = DEFAULT_TEMP_DIR + "\\" + DEFAULT_TEMP_RASTER_NAME
 
@@ -598,8 +639,9 @@ def modification_lai_datas(
     # Read the resampled land use raster
     unified_landuse = read_raster(unifited_landuse_path)
 
-    # Define the output folder path for modified LAI files
-    output_folder_path = ensure_directory_exists(DEFAULT_MODIFY_LAI_FOLDER)
+    # Define the output folder path for modified and unmodified LAI files
+    output_folder_path_lai = ensure_directory_exists(DEFAULT_MODIFY_LAI_FOLDER)
+    output_path_unchanged = ensure_directory_exists(DEFAULT_UNMODIFY_FOLDER)
 
     # Loop through each LAI file to apply modifications
     for lai_file_path in list_of_data_for_modifying[0]:
@@ -608,12 +650,12 @@ def modification_lai_datas(
         lai_data = read_raster(lai_file_path)
 
         # Call the adjust_lai function with the corresponding LAI filename
-        lai_adjusted = adjust_lai(
+        lai_adjusted, unchanged_array= adjust_lai(
             lai_data,
             unified_landuse,
             elevation_classes,
             csv_for_modification,
-            elevation_list,
+            elevation_labels,
             lai_file_path
         )
 
@@ -624,8 +666,24 @@ def modification_lai_datas(
         part2 = filename_raw.split('_')[1]
         part_of_name = part1 + '_' + part2
 
-        # Construct the output path for the modified LAI file
-        output_path = output_folder_path.joinpath(f"modify_{part_of_name}.tif")
+        # Construct the output path for the modified and unmodified LAI file
+        output_path_for_lai = output_folder_path_lai.joinpath(
+            f"modify_{part_of_name}.tif"
+            )
+        output_path_unchanged_lai = output_path_unchanged.joinpath(
+            f"unmodify_{part_of_name}.tif"
+            )
 
-        # Save the adjusted LAI data to a new raster file
-        save_lai_to_raster(lai_adjusted, template_raster, output_path)
+        # Save the adjusted LAI data and unmodified data to a new raster file
+        save_lai_to_raster(
+            lai_adjusted,
+            template_raster,
+            output_path_for_lai
+            )
+        save_lai_to_raster(
+            unchanged_array,
+            template_raster,
+            output_path_unchanged_lai,
+            )
+    
+    return csv_for_modification

@@ -412,4 +412,4 @@ def plot_single_lai_graph(
                 group_data[display_data],
                 label=f"{label_prefix} {display_data}",
             )
-чісвло87тии78рть905б
+
